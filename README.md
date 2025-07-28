@@ -7,6 +7,11 @@
   - 2nd MapBox integration in my own project
 ## Screenshot
 ![Product screenshot](public/images/screenshot.png)
+## Prerequisites to Build
+1. node
+1. npm
+1. express
+1. express-generator
 ## How to Build
 ```
 git clone https://github.com/brianjester/myExpressApp.git
