@@ -5,7 +5,7 @@
 ![Product screenshot](public/images/screenshot.png)
 ## How to Build
 ```
-git clone
+git clone https://github.com/brianjester/myExpressApp.git
 cd myExpressApp 
 npm install
 ```
