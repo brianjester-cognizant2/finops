@@ -8,10 +8,24 @@
 ## Screenshot
 ![Product screenshot](public/images/screenshot.png)
 ## Prerequisites to Build
+1. nvm
 1. node
 1. npm
 1. express
 1. express-generator
+1. MapBox public API key
+## Notes on Prereqs
+- On a Cognizant laptop, you'll use the Company Portal app to install:
+  - Visual Studio Code
+  - Node JS
+- On a personal computer you'll use:
+  - [nvm-windows](https://github.com/coreybutler/nvm-windows/releases)
+  - Update your PATH for nvm
+  - use nvm to install node
+  ```
+  nvm install latest
+  ```
+  - Update your PATH for node & npm which are under the nvm path (Example: ..\nvm\24.4.1\\)
 ## How to Build
 ```
 git clone https://github.com/brianjester/myExpressApp.git
