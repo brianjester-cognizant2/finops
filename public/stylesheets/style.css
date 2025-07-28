@@ -85,7 +85,7 @@ html, body {
   border-left: 1px solid #495057; /* Darker border */
   background-color: #212529; /* Dark panel background */
   overflow-y: auto;
-  color: #f0f0f0; /* Light text for panel */
+  color: #fd1e1e; /* Light text for panel */
 }
 
 label {
@@ -117,11 +117,12 @@ button:hover {
 .mapboxgl-popup-content {
   text-align: left;
   font-family: 'Open Sans', sans-serif;
+  color: #191a1a;
 }
 
 #properties-display {
   background-color: #343a40; /* Darker pre background */
-  color: #f0f0f0;
+  color: #c2cf04;
   padding: 10px;
   border-radius: 4px;
   white-space: pre-wrap;
