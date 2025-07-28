@@ -1,0 +1,17 @@
+# USGS Earthquake Map
+## Purpose
+- created for Cognizant Vibe Coding Week 2025 (July 30 - August 6)
+## Screenshot
+![Product screenshot](public/images/screenshot.png)
+## How to Build
+```
+git clone
+cd myExpressApp 
+npm install
+```
+## How to Run
+```
+cd myExpressApp
+npm start
+```
+In a browser visit: http://localhost:3000
