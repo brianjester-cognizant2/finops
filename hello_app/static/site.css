@@ -1,0 +1,90 @@
+body {
+    background-color: #2d2d2d;
+    color: #f0f0f0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.message {
+    font-weight: 600;
+    color: #f1c40f; /* Warm yellow for messages */
+}
+
+.navbar {
+    background-color: #1e1e1e; /* Darker background for navbar */
+    font-size: 1em;
+    font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+    color: #f0f0f0; /* Light text for navbar */
+    padding: 8px 5px 8px 5px;
+    border-bottom: 1px solid #444; /* Add a subtle separator */
+}
+
+.navbar a {
+    text-decoration: none;
+    color: inherit;
+    transition: color 0.2s ease-in-out;
+}
+
+.navbar a:hover {
+    color: #e67e22; /* Orange for hover */
+}
+
+.navbar-brand {
+    font-size: 1.2em;
+    font-weight: 600;
+}
+.navbar-item {
+    font-variant: small-caps;
+    margin-left: 30px;
+}
+
+.body-content {
+    padding: 15px;
+}
+
+.body-content a {
+    color: #e67e22; /* Orange for links in the body */
+    text-decoration: none;
+}
+
+.body-content a:hover {
+    text-decoration: underline;
+}
+
+hr {
+    border-color: #444; /* Darker horizontal rule */
+}
+
+/* Styles for the new home page title */
+.title-container {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.main-title {
+    font-family: 'Orbitron', 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', sans-serif;
+    font-size: 10vw;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 4px 4px 8px rgba(0,0,0,0.7);
+    padding: 20px;
+    margin: 20px 0 10px 0;
+    background: linear-gradient(45deg, #ff8c00, #ff4500, #ffd700, #ff6347);
+    background-size: 400% 400%;
+    animation: flame-animation 10s ease infinite;
+    border-radius: 10px;
+    display: inline-block;
+}
+
+@keyframes flame-animation {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.subtitle {
+    font-size: 2.5vw;
+    color: #f0f0f0;
+    margin-top: 0;
+    font-weight: 300;
+    letter-spacing: 2px;
+}
