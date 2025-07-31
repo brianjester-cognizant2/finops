@@ -1,0 +1,39 @@
+.metric-card {
+  background-color: var(--surface-color);
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.metric-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-md);
+}
+
+.metric-title {
+  font-size: 0.9rem;
+  color: var(--secondary-color);
+  margin: 0 0 0.5rem 0;
+  font-weight: 500;
+}
+
+.metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--heading-color);
+  margin: 0 0 0.5rem 0;
+}
+
+.metric-change {
+  margin: 0;
+  font-weight: 600;
+}
+
+.metric-change.positive {
+  color: #34d399;
+}
+
+.metric-change.negative {
+  color: #ef4444;
+}

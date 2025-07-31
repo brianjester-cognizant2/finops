@@ -1,0 +1,24 @@
+.placeholder-page {
+    background-color: var(--surface-color);
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+}
+
+.placeholder-page h2 {
+    margin-top: 0;
+}
+
+.placeholder-page p {
+    line-height: 1.6;
+    max-width: 800px;
+}
+
+.placeholder-page ul {
+    list-style-type: disc;
+    padding-left: 2rem;
+}
+
+.placeholder-page li {
+    margin-bottom: 0.5rem;
+}

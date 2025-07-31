@@ -1,8 +1,8 @@
 .App {
   display: flex;
-  background-color: #f4f7fa;
+  background-color: var(--background-color);
   min-height: 100vh;
-  color: #333;
+  color: var(--text-color);
 }
 
 .main-content {
@@ -18,17 +18,5 @@
 }
 
 h1, h2, h3 {
-  color: #1a253c;
-}
-
-.placeholder-page {
-  background-color: var(--surface-color);
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: var(--shadow-md);
-}
-
-.placeholder-page p {
-  line-height: 1.6;
-  max-width: 800px;
+  color: var(--heading-color);
 }

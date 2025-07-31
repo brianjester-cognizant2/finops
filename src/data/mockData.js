@@ -32,3 +32,27 @@ export const placeholderPages = {
     description: 'This page will provide actionable insights and recommendations for cost savings. This includes right-sizing instances, suggesting better subscription plans, and highlighting best practices for effective cost allocation.',
   },
 };
+
+export const spendOverTime = [
+  { date: 'Jul 1', spend: 2200 },
+  { date: 'Jul 2', spend: 2500 },
+  { date: 'Jul 3', spend: 2300 },
+  { date: 'Jul 4', spend: 2800 },
+  { date: 'Jul 5', spend: 3100 },
+  { date: 'Jul 6', spend: 2900 },
+  { date: 'Jul 7', spend: 3400 },
+  { date: 'Jul 8', spend: 3500 },
+  { date: 'Jul 9', spend: 3800 },
+  { date: 'Jul 10', spend: 4000 },
+  { date: 'Jul 11', spend: 4100 },
+  { date: 'Jul 12', spend: 4300 },
+  { date: 'Jul 13', spend: 4200 },
+  { date: 'Jul 14', spend: 4500 },
+  { date: 'Jul 15', spend: 4400 },
+  { date: 'Jul 16', spend: 4700 },
+  { date: 'Jul 17', spend: 5000 },
+  { date: 'Jul 18', spend: 5200 },
+  { date: 'Jul 19', spend: 5100 },
+  { date: 'Jul 20', spend: 5300 },
+  { date: 'Jul 21', spend: 5500 },
+];

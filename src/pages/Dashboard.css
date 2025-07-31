@@ -30,6 +30,30 @@
   align-items: center;
   justify-content: center;
   color: var(--secondary-color);
-  background-color: #f9fafb;
+  background-color: var(--surface-color);
   border-radius: 4px;
+}
+
+/* Recharts theme overrides for dark mode */
+.recharts-cartesian-axis-tick-value,
+.recharts-legend-item-text {
+  fill: var(--secondary-color);
+  color: var(--secondary-color);
+}
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: var(--border-color);
+}
+
+.recharts-default-tooltip {
+  background-color: var(--surface-color) !important;
+  border-color: var(--border-color) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--shadow-md);
+  color: var(--text-color) !important;
+}
+
+.recharts-tooltip-label {
+  color: var(--heading-color) !important;
 }
