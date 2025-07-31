@@ -5,15 +5,20 @@ import {
 } from 'recharts';
 import MetricCard from '../components/MetricCard';
 import DataTable from '../components/DataTable';
-import { summaryMetrics, costBreakdown, recentAnomalies, spendOverTime } from '../data/mockData';
+import { summaryMetrics, costBreakdown, recentAnomalies, spendOverTimeData } from '../data/mockData';
 import './Dashboard.css';
 
 const COLORS = ['#a855f7', '#34d399', '#f97316', '#8b5cf6', '#84cc16', '#facc15'];
 
 function Dashboard() {
   const [selectedProject, setSelectedProject] = useState('All Projects');
+  const [timeRange, setTimeRange] = useState('mtd');
+  const [selectedTeam, setSelectedTeam] = useState('All Teams');
+  const [selectedCloud, setSelectedCloud] = useState('All Clouds');
 
   const projectNames = useMemo(() => ['All Projects', ...new Set(costBreakdown.map(item => item.project))], []);
+  const teamNames = useMemo(() => ['All Teams', ...new Set(costBreakdown.map(item => item.team))], []);
+  const cloudNames = useMemo(() => ['All Clouds', ...new Set(costBreakdown.map(item => item.cloudProvider))], []);
 
   const {
     filteredCostBreakdown,
@@ -23,17 +28,13 @@ function Dashboard() {
     spendByProject,
     filteredSpendOverTime
   } = useMemo(() => {
-    const fCostBreakdown = selectedProject === 'All Projects'
-      ? costBreakdown
-      : costBreakdown.filter(item => item.project === selectedProject);
+    const fCostBreakdown = costBreakdown
+      .filter(item => selectedProject === 'All Projects' || item.project === selectedProject)
+      .filter(item => selectedTeam === 'All Teams' || item.team === selectedTeam)
+      .filter(item => selectedCloud === 'All Clouds' || item.cloudProvider === selectedCloud);
 
-    const serviceToProjectMap = costBreakdown.reduce((acc, item) => {
-      acc[item.service] = item.project;
-      return acc;
-    }, {});
-    const fAnomalies = selectedProject === 'All Projects'
-      ? recentAnomalies
-      : recentAnomalies.filter(anomaly => serviceToProjectMap[anomaly.service] === selectedProject);
+    const allowedServices = new Set(fCostBreakdown.map(item => item.service));
+    const fAnomalies = recentAnomalies.filter(anomaly => allowedServices.has(anomaly.service));
 
     const pCostBreakdown = fCostBreakdown.map(item => ({
       ...item,
@@ -44,8 +45,8 @@ function Dashboard() {
     const dSummaryMetrics = [
       { title: 'Total Spend (Month-to-Date)', value: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSpend), change: summaryMetrics[0].change },
       { title: 'Forecasted Spend', value: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalSpend * 1.75), change: summaryMetrics[1].change },
-      { title: 'Active Projects', value: selectedProject === 'All Projects' ? new Set(costBreakdown.map(p => p.project)).size : 1 },
-      { ...summaryMetrics[3], value: selectedProject === 'All Projects' ? '4' : '1' },
+      { title: 'Active Projects', value: new Set(fCostBreakdown.map(p => p.project)).size },
+      { ...summaryMetrics[3], value: Math.ceil(fCostBreakdown.length / 2) },
     ];
 
     const sByProject = Object.values(pCostBreakdown.reduce((acc, curr) => {
@@ -57,17 +58,34 @@ function Dashboard() {
     }, {}));
 
     const fSpendOverTime = (() => {
-      if (selectedProject === 'All Projects') {
-        return spendOverTime;
+      const sliceData = (data) => {
+        if (timeRange === '7d') {
+          return data.slice(-7);
+        }
+        if (timeRange === '30d') {
+          return data.slice(-30);
+        }
+        return data; // 'mtd'
+      };
+
+      if (selectedProject !== 'All Projects') {
+        // Data for single project view is in format: [{ date, spend }]
+        return sliceData(spendOverTimeData[selectedProject] || []);
       }
-      const totalSpendAllProjects = costBreakdown.reduce((sum, item) => sum + parseFloat(item.spend.replace(/[^0-9.-]+/g, "")), 0);
-      const projectSpend = pCostBreakdown.reduce((sum, item) => sum + item.spendValue, 0);
-      if (totalSpendAllProjects === 0) return spendOverTime.map(d => ({ ...d, spend: 0 }));
-      const projectRatio = projectSpend / totalSpendAllProjects;
-      return spendOverTime.map(d => ({
-        ...d,
-        spend: Math.round(d.spend * projectRatio),
-      }));
+
+      // Data for "All Projects" view needs to be combined.
+      // Format: [{ date, 'Project Alpha': 123, 'Project Beta': 456, ... }]
+      const projectKeys = projectNames.filter(p => p !== 'All Projects');
+
+      // Use the first project's data as the base for dates.
+      const combinedData = spendOverTimeData[projectKeys[0]].map((dataPoint, index) => {
+        const entry = { date: dataPoint.date };
+        projectKeys.forEach(pKey => {
+          entry[pKey] = spendOverTimeData[pKey][index]?.spend || 0;
+        });
+        return entry;
+      });
+      return sliceData(combinedData);
     })();
 
     return {
@@ -78,23 +96,39 @@ function Dashboard() {
       spendByProject: sByProject,
       filteredSpendOverTime: fSpendOverTime,
     };
-  }, [selectedProject]);
+  }, [selectedProject, timeRange, selectedTeam, selectedCloud, projectNames]);
 
   return (
     <div className="dashboard">
       <div className="dashboard-header">
         <h1 style={{ margin: 0 }}>Dashboard</h1>
-        <div className="dashboard-filter">
-          <label htmlFor="project-filter">Filter by Project:</label>
-          <select
-            id="project-filter"
-            value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
-          >
-            {projectNames.map(name => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
+        <div className="filters-container">
+          <div className="dashboard-filter">
+            <label htmlFor="timerange-filter">Time Range:</label>
+            <select id="timerange-filter" value={timeRange} onChange={(e) => setTimeRange(e.target.value)}>
+              <option value="mtd">Full Month</option>
+              <option value="30d">Last 30 Days</option>
+              <option value="7d">Last 7 Days</option>
+            </select>
+          </div>
+          <div className="dashboard-filter">
+            <label htmlFor="project-filter">Project:</label>
+            <select id="project-filter" value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)}>
+              {projectNames.map(name => (<option key={name} value={name}>{name}</option>))}
+            </select>
+          </div>
+          <div className="dashboard-filter">
+            <label htmlFor="team-filter">Team:</label>
+            <select id="team-filter" value={selectedTeam} onChange={(e) => setSelectedTeam(e.target.value)}>
+              {teamNames.map(name => (<option key={name} value={name}>{name}</option>))}
+            </select>
+          </div>
+          <div className="dashboard-filter">
+            <label htmlFor="cloud-filter">Cloud:</label>
+            <select id="cloud-filter" value={selectedCloud} onChange={(e) => setSelectedCloud(e.target.value)}>
+              {cloudNames.map(name => (<option key={name} value={name}>{name}</option>))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -114,7 +148,28 @@ function Dashboard() {
               <YAxis tickFormatter={(value) => `$${value / 1000}k`} />
               <Tooltip formatter={(value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)} />
               <Legend />
-              <Line type="monotone" dataKey="spend" stroke="#a855f7" strokeWidth={2} activeDot={{ r: 8 }} />
+              {selectedProject === 'All Projects' ? (
+                projectNames.filter(p => p !== 'All Projects').map((projectName, index) => (
+                  <Line
+                    key={projectName}
+                    type="monotone"
+                    dataKey={projectName}
+                    stroke={COLORS[index % COLORS.length]}
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 6 }}
+                  />
+                ))
+              ) : (
+                <Line
+                  type="monotone"
+                  dataKey="spend"
+                  name={selectedProject}
+                  stroke={COLORS[0]}
+                  strokeWidth={2}
+                  activeDot={{ r: 8 }}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </div>

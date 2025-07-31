@@ -11,6 +11,12 @@
   /* Removed margin-bottom to let the main dashboard gap handle spacing */
 }
 
+.filters-container {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
 .dashboard-filter {
   display: flex;
   align-items: center;
