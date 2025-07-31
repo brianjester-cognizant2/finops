@@ -26,15 +26,28 @@ function Dashboard() {
     dynamicSummaryMetrics,
     parsedCostBreakdown,
     spendByProject,
-    filteredSpendOverTime
+    filteredSpendOverTime,
+    spendByTeam,
+    spendByCloud
   } = useMemo(() => {
     const fCostBreakdown = costBreakdown
       .filter(item => selectedProject === 'All Projects' || item.project === selectedProject)
       .filter(item => selectedTeam === 'All Teams' || item.team === selectedTeam)
       .filter(item => selectedCloud === 'All Clouds' || item.cloudProvider === selectedCloud);
 
+    // Create a map for easy lookup of service metadata
+    const serviceInfoMap = costBreakdown.reduce((acc, item) => {
+      acc[item.service] = { team: item.team, cloudProvider: item.cloudProvider };
+      return acc;
+    }, {});
+
     const allowedServices = new Set(fCostBreakdown.map(item => item.service));
-    const fAnomalies = recentAnomalies.filter(anomaly => allowedServices.has(anomaly.service));
+    const fAnomalies = recentAnomalies
+      .filter(anomaly => allowedServices.has(anomaly.service))
+      .map(anomaly => ({
+        ...anomaly,
+        ...(serviceInfoMap[anomaly.service] || {}),
+      }));
 
     const pCostBreakdown = fCostBreakdown.map(item => ({
       ...item,
@@ -54,6 +67,22 @@ function Dashboard() {
         acc[curr.project] = { project: curr.project, spendValue: 0 };
       }
       acc[curr.project].spendValue += curr.spendValue;
+      return acc;
+    }, {}));
+
+    const sByTeam = Object.values(pCostBreakdown.reduce((acc, curr) => {
+      if (!acc[curr.team]) {
+        acc[curr.team] = { team: curr.team, spendValue: 0 };
+      }
+      acc[curr.team].spendValue += curr.spendValue;
+      return acc;
+    }, {}));
+
+    const sByCloud = Object.values(pCostBreakdown.reduce((acc, curr) => {
+      if (!acc[curr.cloudProvider]) {
+        acc[curr.cloudProvider] = { cloudProvider: curr.cloudProvider, spendValue: 0 };
+      }
+      acc[curr.cloudProvider].spendValue += curr.spendValue;
       return acc;
     }, {}));
 
@@ -95,6 +124,8 @@ function Dashboard() {
       parsedCostBreakdown: pCostBreakdown,
       spendByProject: sByProject,
       filteredSpendOverTime: fSpendOverTime,
+      spendByTeam: sByTeam,
+      spendByCloud: sByCloud,
     };
   }, [selectedProject, timeRange, selectedTeam, selectedCloud, projectNames]);
 
@@ -219,11 +250,55 @@ function Dashboard() {
         </section>
       </div>
 
+      <div className="charts-grid">
+        <section className="dashboard-section">
+          <h2>Spend by Team</h2>
+          <div className="chart-wrapper">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={spendByTeam} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="team" />
+                <YAxis tickFormatter={(value) => `$${value / 1000}k`} />
+                <Tooltip formatter={(value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)} />
+                <Legend />
+                <Bar dataKey="spendValue" name="Spend" fill="#f97316" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        <section className="dashboard-section">
+          <h2>Spend by Cloud Provider</h2>
+          <div className="chart-wrapper">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={spendByCloud}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="spendValue"
+                  nameKey="cloudProvider"
+                >
+                  {spendByCloud.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+      </div>
+
       <section className="dashboard-section">
         <h2>Cost Breakdown Details</h2>
         <DataTable
-          headers={['Service', 'Project', 'Spend', 'Usage (Tokens)', 'Trend']}
-          dataKeys={['service', 'project', 'spend', 'usage', 'trend']}
+          headers={['Service', 'Project', 'Team', 'Cloud', 'Spend', 'Usage (Tokens)', 'Trend']}
+          dataKeys={['service', 'project', 'team', 'cloudProvider', 'spend', 'usage', 'trend']}
           rows={filteredCostBreakdown}
         />
       </section>
@@ -231,8 +306,8 @@ function Dashboard() {
       <section className="dashboard-section">
         <h2>Recent Anomalies & Alerts</h2>
         <DataTable
-          headers={['Timestamp', 'Service', 'Description', 'Severity']}
-          dataKeys={['timestamp', 'service', 'description', 'severity']}
+          headers={['Timestamp', 'Service', 'Team', 'Cloud', 'Description', 'Severity']}
+          dataKeys={['timestamp', 'service', 'team', 'cloudProvider', 'description', 'severity']}
           rows={filteredAnomalies}
         />
       </section>
