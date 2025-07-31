@@ -489,11 +489,30 @@ with tab4:
 
     # --- UI Display ---
 
-    # Calculate counts for metrics
-    high_issues = len([r for r in recommendations if r['severity'] == 'high'])
-    medium_issues = len([r for r in recommendations if r['severity'] == 'medium'])
-    low_issues = len([r for r in recommendations if r['severity'] == 'low'])
+    # Create the compliance checks dataframe first to calculate metrics from it
+    checks_list = [
+        "Budget implemented", "Cost alert implemented", "Token alert implemented",
+        "Storage alert implemented", "Compute alert implemented", "Labels implemented",
+        "Chunk size based on content type check", "Multi agent implemented",
+        "Agent payload watch implemented", "Semantic caching implemented",
+        "GPTCache implemented", "Langchain caching implemented",
+        "Agent feedback implemented", "Model size check", "Model version check",
+        "Subscription check", "Anomaly detection check"
+    ]
+    
+    priorities = np.random.choice(['High', 'Medium', 'Low'], size=len(checks_list))
+    implemented = np.random.choice(['No', 'Yes', 'N/A'], size=len(checks_list))
+    
+    checks_df = pd.DataFrame({
+        'Check': checks_list,
+        'Priority': priorities,
+        'Implemented': implemented
+    })
 
+    # Calculate counts for metrics from the compliance checks table
+    high_issues = len(checks_df[(checks_df['Priority'] == 'High') & (checks_df['Implemented'] == 'No')])
+    medium_issues = len(checks_df[(checks_df['Priority'] == 'Medium') & (checks_df['Implemented'] == 'No')])
+    low_issues = len(checks_df[(checks_df['Priority'] == 'Low') & (checks_df['Implemented'] == 'No')])
     # Display metrics in a horizontal row
     st.markdown("""
     <style>
@@ -545,6 +564,24 @@ with tab4:
         """, unsafe_allow_html=True)
     
     st.markdown("---")
+
+    st.subheader("Compliance & Best Practice Checks")
+    
+    def style_priority(val):
+        color = '#facc15' if val == 'Medium' else '#ef4444' if val == 'High' else '#60a5fa'
+        return f'color: {color}'
+
+    def style_implemented(val):
+        if val == 'Yes':
+            color = '#34d399'  # Green
+        elif val == 'No':
+            color = '#ef4444'  # Red
+        else:  # N/A
+            color = '#60a5fa'  # Blue
+        return f'color: {color}'
+
+
+    st.dataframe(checks_df.style.applymap(style_priority, subset=['Priority']).applymap(style_implemented, subset=['Implemented']), use_container_width=True, hide_index=True)
 
     # Display Model Efficiency Rankings
     if not model_recommendations.empty:
