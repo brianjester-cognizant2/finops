@@ -1,15 +1,15 @@
 export const summaryMetrics = [
-  { title: 'Total Spend (Month-to-Date)', value: '$12,450', change: '+5.2%' },
-  { title: 'Forecasted Spend', value: '$15,800', change: '-1.5%' },
+  { title: 'Total Spend (Month-to-Date)', value: '$82,800', change: '+5.2%' },
+  { title: 'Forecasted Spend', value: '$145,000', change: '-1.5%' },
   { title: 'Active Projects', value: '12' },
   { title: 'Cost Saving Opportunities', value: '4', change: 'New' },
 ];
 
 export const costBreakdown = [
-  { service: 'OpenAI GPT-4', project: 'Project Alpha', spend: '$4,500', usage: '1.2B', trend: '↑' },
-  { service: 'Anthropic Claude 3', project: 'Project Beta', spend: '$3,200', usage: '980M', trend: '↓' },
-  { service: 'Google Gemini Pro', project: 'Project Gamma', spend: '$2,800', usage: '1.5B', trend: '↑' },
-  { service: 'Azure AI Services', project: 'Project Alpha', spend: '$1,950', usage: 'N/A', trend: '↔' },
+  { service: 'OpenAI GPT-4', project: 'Project Alpha', spend: '$29,925', usage: '8.0B', trend: '↑' },
+  { service: 'Anthropic Claude 3', project: 'Project Beta', spend: '$21,280', usage: '6.5B', trend: '↓' },
+  { service: 'Google Gemini Pro', project: 'Project Gamma', spend: '$18,620', usage: '9.9B', trend: '↑' },
+  { service: 'Azure AI Services', project: 'Project Alpha', spend: '$12,975', usage: 'N/A', trend: '↔' },
 ];
 
 export const recentAnomalies = [
@@ -55,4 +55,14 @@ export const spendOverTime = [
   { date: 'Jul 19', spend: 5100 },
   { date: 'Jul 20', spend: 5300 },
   { date: 'Jul 21', spend: 5500 },
+  { date: 'Jul 22', spend: 5600 },
+  { date: 'Jul 23', spend: 5800 },
+  { date: 'Jul 24', spend: 5700 },
+  { date: 'Jul 25', spend: 6000 },
+  { date: 'Jul 26', spend: 6200 },
+  { date: 'Jul 27', spend: 6100 },
+  { date: 'Jul 28', spend: 6400 },
+  { date: 'Jul 29', spend: 6500 },
+  { date: 'Jul 30', spend: 6700 },
+  { date: 'Jul 31', spend: 7000 },
 ];

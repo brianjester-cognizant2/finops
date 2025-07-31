@@ -10,6 +10,12 @@
   gap: 1.5rem;
 }
 
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
 .dashboard-section {
   background-color: var(--surface-color);
   padding: 1.5rem;
@@ -24,14 +30,9 @@
   padding-bottom: 0.75rem;
 }
 
-.chart-container {
-  height: 300px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--secondary-color);
-  background-color: var(--surface-color);
-  border-radius: 4px;
+.chart-wrapper {
+  height: 350px;
+  width: 100%;
 }
 
 /* Recharts theme overrides for dark mode */
