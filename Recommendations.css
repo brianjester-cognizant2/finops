@@ -1,0 +1,16 @@
+.recommendations-page {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.recommendations-page h1 {
+  margin: 0;
+  color: var(--heading-color);
+}
+
+.recommendations-page .dashboard-section p {
+  margin-top: -1rem;
+  margin-bottom: 1.5rem;
+  color: var(--secondary-color);
+}

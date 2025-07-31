@@ -1,0 +1,67 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  /* Removed margin-bottom to let the main dashboard gap handle spacing */
+}
+
+.filters-container {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.dashboard-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dashboard-filter label {
+  font-weight: 500;
+  color: var(--secondary-color);
+}
+
+.dashboard-filter select {
+  padding: 0.5rem 0.75rem;
+  background-color: var(--surface-color);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.chart-wrapper {
+  height: 350px;
+  width: 100%;
+}
+
+/* Recharts theme overrides for dark mode */
+.recharts-cartesian-axis-tick-value,
+.recharts-legend-item-text {
+  fill: var(--secondary-color);
+  color: var(--secondary-color);
+}
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: var(--border-color);
+}
+
+.recharts-default-tooltip {
+  background-color: var(--surface-color) !important;
+  border-color: var(--border-color) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--shadow-md);
+  color: var(--text-color) !important;
+}
+
+.recharts-tooltip-label {
+  color: var(--heading-color) !important;
+}
