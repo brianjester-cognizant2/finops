@@ -27,15 +27,21 @@ st.sidebar.header("Settings")
 # Sample data generation function
 def generate_sample_data():
     np.random.seed(42)
-    dates = pd.date_range(start='2023-01-01', end='2023-06-30', freq='D')
+    dates = pd.date_range(start='2023-01-01', end= pd.Timestamp.today().strftime('%Y-%m-%d'), freq='D')
     
     # Model performance data
-    models = ['GPT-4', 'Claude 3', 'Llama 3', 'Mixtral', 'PaLM 2']
+    models = {
+        'GPT-4': {'token_limit': 80000, 'avg_tokens_per_request': 2500},
+        'Claude 3': {'token_limit': 150000, 'avg_tokens_per_request': 3000},
+        'Llama 3': {'token_limit': 70000, 'avg_tokens_per_request': 2000},
+        'Mixtral': {'token_limit': 30000, 'avg_tokens_per_request': 1800},
+        'PaLM 2': {'token_limit': 30000, 'avg_tokens_per_request': 1500}
+    }
     model_data = []
     
-    for model in models:
+    for model, properties in models.items():
         base_latency = np.random.uniform(100, 500)
-        base_throughput = np.random.uniform(10, 50)
+        base_throughput = np.random.uniform(100, 5000)
         base_accuracy = np.random.uniform(0.7, 0.95)
         base_cost = np.random.uniform(0.01, 0.1)
         
@@ -49,6 +55,12 @@ def generate_sample_data():
             accuracy = min(0.99, base_accuracy / trend_factor * random_factor)
             cost = base_cost * trend_factor * random_factor
             
+            # Token usage simulation
+            avg_tokens_per_minute = throughput / ( 60 * 24 ) * properties['avg_tokens_per_request'] * np.random.normal(1, 0.15)
+            max_tokens_per_minute = avg_tokens_per_minute * np.random.uniform(1.5, 7.5)
+            minute_samples = np.random.normal(max_tokens_per_minute, max_tokens_per_minute * 0.4, 24 * 60)
+            exceedances = np.sum(minute_samples > properties['token_limit'])
+            
             model_data.append({
                 'date': date,
                 'model': model,
@@ -57,7 +69,10 @@ def generate_sample_data():
                 'accuracy': accuracy,
                 'cost_per_1k_tokens': cost,
                 'memory_usage_gb': np.random.uniform(4, 16),
-                'gpu_utilization': np.random.uniform(0.4, 0.95)
+                'gpu_utilization': np.random.uniform(0.4, 0.95),
+                'avg_tokens_per_minute': avg_tokens_per_minute,
+                'max_tokens_per_minute': max_tokens_per_minute,
+                'token_limit_exceeded_count': exceedances
             })
     
     # Infrastructure data
@@ -103,6 +118,9 @@ if 'model_data' not in st.session_state or 'infra_data' not in st.session_state:
 model_df = st.session_state.model_data
 infra_df = st.session_state.infra_data
 
+# Calculate error rate on the main dataframe to ensure it's always available
+infra_df['error_rate'] = infra_df['errors_per_minute'] / infra_df['requests_per_minute']
+
 # Date filter for analysis
 date_range = st.sidebar.date_input(
     "Select Date Range",
@@ -146,7 +164,7 @@ model_df_filtered = model_df_filtered[model_df_filtered['model'].isin(selected_m
 infra_df_filtered = infra_df_filtered[infra_df_filtered['component'].isin(selected_components)]
 
 # Main content
-tab1, tab2, tab3, tab4 = st.tabs(["Model Performance", "Infrastructure Metrics", "Architecture Overview", "Optimization Recommendations"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Model Performance", "Infrastructure Metrics", "Architecture Overview", "Optimization Recommendations", "Token Usage Analysis", "Alerts"])
 
 with tab1:
     st.header("Model Performance Analysis")
@@ -195,30 +213,57 @@ with tab1:
     
     # Metric trends over time
     st.subheader("Model Metric Trends Over Time")
-    
+
+    # Graph type selector for model metric trends
+    model_graph_type = st.radio(
+        "Select Graph Type for Model Metrics",
+        options=["Line", "Bar", "Area"],
+        horizontal=True,
+        key="model_metric_graph_type"
+    )
+
     cols = st.columns(len(model_metrics) if len(model_metrics) > 0 else 1)
-    
+
     for i, metric in enumerate(model_metrics):
         with cols[i % len(cols)]:
             pretty_metric = metric.replace('_', ' ').title()
             st.write(f"**{pretty_metric}**")
-            
-            fig = px.line(
-                model_df_filtered, 
-                x='date', 
-                y=metric, 
-                color='model',
-                title=f"{pretty_metric} Over Time"
-            )
-            
-            # Add a trend line for each model
-            for model in selected_models:
-                model_data = model_df_filtered[model_df_filtered['model'] == model]
-                if len(model_data) > 1:  # Need at least 2 points for a trendline
-                    fig.add_traces(
-                        px.scatter(model_data, x='date', y=metric, trendline='lowess').data[1]
-                    )
-            
+
+            if model_graph_type == "Line":
+                fig = px.line(
+                    model_df_filtered, 
+                    x='date', 
+                    y=metric, 
+                    color='model',
+                    title=f"{pretty_metric} Over Time"
+                )
+            elif model_graph_type == "Bar":
+                fig = px.bar(
+                    model_df_filtered, 
+                    x='date', 
+                    y=metric, 
+                    color='model',
+                    barmode='group',
+                    title=f"{pretty_metric} Over Time"
+                )
+            elif model_graph_type == "Area":
+                fig = px.area(
+                    model_df_filtered, 
+                    x='date', 
+                    y=metric, 
+                    color='model',
+                    title=f"{pretty_metric} Over Time"
+                )
+
+            # Add a trend line for each model (only for line chart)
+            if model_graph_type == "Line":
+                for model in selected_models:
+                    model_data = model_df_filtered[model_df_filtered['model'] == model]
+                    if len(model_data) > 1:  # Need at least 2 points for a trendline
+                        fig.add_traces(
+                            px.scatter(model_data, x='date', y=metric, trendline='lowess').data[1]
+                        )
+
             st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
@@ -230,36 +275,84 @@ with tab2:
     metric_options = ['cpu_usage_percent', 'memory_usage_percent', 'requests_per_minute', 'errors_per_minute', 'avg_response_time_ms']
     selected_infra_metric = st.selectbox("Select Metric", metric_options, index=0)
     
-    # Create line chart for the selected metric
-    fig = px.line(
-        infra_df_filtered, 
-        x='date', 
-        y=selected_infra_metric, 
-        color='component',
-        title=f"{selected_infra_metric.replace('_', ' ').title()} Over Time"
+    # Graph type selector for component load
+    graph_type = st.radio(
+        "Select Graph Type for Component Load",
+        options=["Line", "Bar"],
+        horizontal=True,
+        key="component_load_graph_type"
     )
     
+    if graph_type == "Line":
+        fig = px.line(
+            infra_df_filtered, 
+            x='date', 
+            y=selected_infra_metric, 
+            color='component',
+            title=f"{selected_infra_metric.replace('_', ' ').title()} Over Time"
+        )
+    else:
+        fig = px.bar(
+            infra_df_filtered, 
+            x='date', 
+            y=selected_infra_metric, 
+            color='component',
+            barmode='group',
+            title=f"{selected_infra_metric.replace('_', ' ').title()} Over Time"
+        )
     st.plotly_chart(fig, use_container_width=True)
     
     # Correlation heatmap between metrics
     st.subheader("Correlation Between Infrastructure Metrics")
     
+    # Graph type selector for correlation
+    corr_graph_type = st.radio(
+        "Select Graph Type for Correlation",
+        options=["Heatmap", "Bar", "Line"],
+        horizontal=True,
+        key="correlation_graph_type"
+    )
+    
     # Calculate average metrics by component
     avg_metrics_by_component = infra_df_filtered.groupby('component')[metric_options].mean().reset_index()
+    correlation_matrix = avg_metrics_by_component[metric_options].corr()
     
-    # Create heatmap
-    if not avg_metrics_by_component.empty:
+    if corr_graph_type == "Heatmap":
         fig, ax = plt.subplots(figsize=(10, 8))
-        correlation_matrix = avg_metrics_by_component[metric_options].corr()
         sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
         plt.title('Correlation Between Infrastructure Metrics')
         st.pyplot(fig)
+    elif corr_graph_type == "Bar":
+        # Show correlation of each metric with the first metric as a bar chart
+        first_metric = metric_options[0]
+        corr_with_first = correlation_matrix[first_metric].drop(first_metric)
+        fig = px.bar(
+            x=corr_with_first.index,
+            y=corr_with_first.values,
+            labels={'x': 'Metric', 'y': f'Correlation with {first_metric}'},
+            title=f'Correlation of Metrics with {first_metric}'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    elif corr_graph_type == "Line":
+        # Show all correlations as lines
+        fig = go.Figure()
+        for metric in metric_options:
+            fig.add_trace(go.Scatter(
+                x=correlation_matrix.columns,
+                y=correlation_matrix[metric],
+                mode='lines+markers',
+                name=metric
+            ))
+        fig.update_layout(
+            title='Correlation Lines Between Infrastructure Metrics',
+            xaxis_title='Metric',
+            yaxis_title='Correlation',
+            legend_title='Metric'
+        )
+        st.plotly_chart(fig, use_container_width=True)
     
     # Error rate analysis
     st.subheader("Error Rate Analysis")
-    
-    # Calculate error rates
-    infra_df_filtered['error_rate'] = infra_df_filtered['errors_per_minute'] / infra_df_filtered['requests_per_minute']
     
     fig = px.box(
         infra_df_filtered, 
@@ -343,38 +436,51 @@ with tab3:
     
     # Resource allocation analysis
     st.subheader("Resource Allocation Analysis")
-    
+
+    # Graph type selector for resource allocation
+    resource_graph_type = st.radio(
+        "Select Graph Type for Resource Allocation",
+        options=["Horizontal Bar", "Pie"],
+        horizontal=True,
+        key="resource_allocation_graph_type"
+    )
+
     # Calculate average resource usage by component
     avg_resources = infra_df_filtered.groupby('component')[['cpu_usage_percent', 'memory_usage_percent']].mean().reset_index()
-    
-    # Create a horizontal bar chart for resource allocation
-    fig = go.Figure()
-    
-    fig.add_trace(go.Bar(
-        y=avg_resources['component'],
-        x=avg_resources['cpu_usage_percent'],
-        name='CPU Usage (%)',
-        orientation='h',
-        marker=dict(color='rgba(58, 71, 80, 0.6)')
-    ))
-    
-    fig.add_trace(go.Bar(
-        y=avg_resources['component'],
-        x=avg_resources['memory_usage_percent'],
-        name='Memory Usage (%)',
-        orientation='h',
-        marker=dict(color='rgba(246, 78, 139, 0.6)')
-    ))
-    
-    fig.update_layout(
-        barmode='group',
-        title='Average Resource Usage by Component',
-        xaxis_title='Usage Percentage',
-        yaxis_title='Component',
-        legend_title='Resource Type'
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
+
+    if resource_graph_type == "Horizontal Bar":
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            y=avg_resources['component'],
+            x=avg_resources['cpu_usage_percent'],
+            name='CPU Usage (%)',
+            orientation='h',
+            marker=dict(color='rgba(58, 71, 80, 0.6)')
+        ))
+        fig.add_trace(go.Bar(
+            y=avg_resources['component'],
+            x=avg_resources['memory_usage_percent'],
+            name='Memory Usage (%)',
+            orientation='h',
+            marker=dict(color='rgba(246, 78, 139, 0.6)')
+        ))
+        fig.update_layout(
+            barmode='group',
+            title='Average Resource Usage by Component',
+            xaxis_title='Usage Percentage',
+            yaxis_title='Component',
+            legend_title='Resource Type'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    elif resource_graph_type == "Pie":
+        # Show CPU and Memory as two pie charts
+        pie_cols = st.columns(2)
+        with pie_cols[0]:
+            fig_cpu = px.pie(avg_resources, values='cpu_usage_percent', names='component', title='CPU Usage Distribution')
+            st.plotly_chart(fig_cpu, use_container_width=True)
+        with pie_cols[1]:
+            fig_mem = px.pie(avg_resources, values='memory_usage_percent', names='component', title='Memory Usage Distribution')
+            st.plotly_chart(fig_mem, use_container_width=True)
     
     # Calculate bottlenecks
     st.subheader("Potential Bottlenecks")
@@ -418,16 +524,25 @@ with tab4:
     # --- Data Processing for Recommendations ---
     
     # Calculate model efficiency scores
-    latest_metrics = model_df_filtered[model_df_filtered['date'] == model_df_filtered['date'].max()]
+    latest_metrics_raw = model_df_filtered[model_df_filtered['date'] == model_df_filtered['date'].max()]
     model_recommendations = pd.DataFrame()
     
-    if not latest_metrics.empty:
+    if not latest_metrics_raw.empty:
+        latest_metrics = latest_metrics_raw.copy()
+
+        def normalize(series, higher_is_better=True):
+            min_val, max_val = series.min(), series.max()
+            if max_val == min_val:
+                return 0.5
+            normalized = (series - min_val) / (max_val - min_val)
+            return normalized if higher_is_better else 1 - normalized
+
         # Normalize metrics for scoring
-        latest_metrics['latency_norm'] = 1 - (latest_metrics['latency_ms'] - latest_metrics['latency_ms'].min()) / (latest_metrics['latency_ms'].max() - latest_metrics['latency_ms'].min())
-        latest_metrics['throughput_norm'] = (latest_metrics['throughput_qps'] - latest_metrics['throughput_qps'].min()) / (latest_metrics['throughput_qps'].max() - latest_metrics['throughput_qps'].min())
-        latest_metrics['accuracy_norm'] = (latest_metrics['accuracy'] - latest_metrics['accuracy'].min()) / (latest_metrics['accuracy'].max() - latest_metrics['accuracy'].min())
-        latest_metrics['cost_norm'] = 1 - (latest_metrics['cost_per_1k_tokens'] - latest_metrics['cost_per_1k_tokens'].min()) / (latest_metrics['cost_per_1k_tokens'].max() - latest_metrics['cost_per_1k_tokens'].min())
-        latest_metrics['memory_norm'] = 1 - (latest_metrics['memory_usage_gb'] - latest_metrics['memory_usage_gb'].min()) / (latest_metrics['memory_usage_gb'].max() - latest_metrics['memory_usage_gb'].min())
+        latest_metrics['latency_norm'] = normalize(latest_metrics['latency_ms'], higher_is_better=False)
+        latest_metrics['throughput_norm'] = normalize(latest_metrics['throughput_qps'], higher_is_better=True)
+        latest_metrics['accuracy_norm'] = normalize(latest_metrics['accuracy'], higher_is_better=True)
+        latest_metrics['cost_norm'] = normalize(latest_metrics['cost_per_1k_tokens'], higher_is_better=False)
+        latest_metrics['memory_norm'] = normalize(latest_metrics['memory_usage_gb'], higher_is_better=False)
         
         # Calculate efficiency score (higher is better)
         latest_metrics['efficiency_score'] = (
@@ -593,7 +708,7 @@ with tab4:
     if not model_recommendations.empty:
         st.subheader("Model Efficiency Rankings")
         
-        # Convert to a format suitable for st.dataframe with colored bars
+        # test Convert to a format suitable for st.dataframe with colored bars
         model_efficiency_df = pd.DataFrame({
             "Model": model_recommendations['model'],
             "Efficiency Score": model_recommendations['efficiency_score'],
@@ -602,6 +717,9 @@ with tab4:
             "Accuracy": model_recommendations['accuracy'],
             "Cost ($/1K tokens)": model_recommendations['cost_per_1k_tokens']
         })
+        
+        # Ensure Efficiency Score is float, between 0 and 1, and has no NaN
+        model_efficiency_df["Efficiency Score"] = model_efficiency_df["Efficiency Score"].fillna(0).astype(float).clip(0, 1)
         
         st.dataframe(
             model_efficiency_df,
@@ -629,35 +747,151 @@ with tab4:
     else:
         st.write("No specific recommendations at this time.")
     
-    # Cost optimization section
-    st.subheader("Cost Optimization Analysis")
+with tab5:
+    st.header("Token Usage Analysis")
+
+    if not model_df_filtered.empty:
+        df = model_df_filtered.copy()
+
+        # Add calculated columns
+        df['daily_total_tokens'] = df['avg_tokens_per_minute'] * 60 * 24
+        df['daily_token_cost'] = (df['daily_total_tokens'] / 1000) * df['cost_per_1k_tokens']
+
+        st.subheader("Token Volume Over Time")
+        fig_total_tokens = px.line(df, x='date', y='daily_total_tokens', color='model', title="Daily Total Tokens")
+        st.plotly_chart(fig_total_tokens, use_container_width=True)
+
+        st.subheader("Tokens per Minute Analysis")
+        token_rate_df = df.melt(
+            id_vars=['date', 'model'], 
+            value_vars=['avg_tokens_per_minute', 'max_tokens_per_minute'], 
+            var_name='Metric', 
+            value_name='Tokens per Minute'
+        )
+        token_rate_df['Metric'] = token_rate_df['Metric'].str.replace('_', ' ').str.title()
+        fig_token_rate = px.line(
+            token_rate_df, 
+            x='date', 
+            y='Tokens per Minute', 
+            color='model', 
+            line_dash='Metric', 
+            title="Tokens per Minute (Average vs Max)"
+        )
+        st.plotly_chart(fig_token_rate, use_container_width=True)
+
+        st.subheader("Token Limit Exceedances")
+        fig_exceedances = px.line(df, x='date', y='token_limit_exceeded_count', color='model', title="Daily Token Limit Exceedance Count")
+        st.plotly_chart(fig_exceedances, use_container_width=True)
+
+        st.subheader("Token Cost Analysis")
+        
+        # Daily total cost
+        fig_daily_cost = px.line(df, x='date', y='daily_token_cost', color='model', title="Daily Total Token Cost ($)")
+        fig_daily_cost.update_layout(yaxis_title="Cost ($)")
+        st.plotly_chart(fig_daily_cost, use_container_width=True)
+
+        # Weekly average cost per 1k tokens
+        model_cost_data = df.groupby(['model', pd.Grouper(key='date', freq='W')])['cost_per_1k_tokens'].mean().reset_index()
+        fig_weekly_cost = px.line(
+            model_cost_data, 
+            x='date', 
+            y='cost_per_1k_tokens', 
+            color='model',
+            title="Weekly Average Cost per 1K Tokens"
+        )
+        st.plotly_chart(fig_weekly_cost, use_container_width=True)
     
-    # Calculate average cost per model and usage over time
-    model_cost_data = model_df_filtered.groupby(['model', pd.Grouper(key='date', freq='W')])['cost_per_1k_tokens'].mean().reset_index()
-    
-    fig = px.line(
-        model_cost_data, 
-        x='date', 
-        y='cost_per_1k_tokens', 
-        color='model',
-        title="Weekly Average Cost per 1K Tokens"
+        # Calculate potential savings
+        latest_metrics = df[df['date'] == df['date'].max()]
+        if not latest_metrics.empty:
+            current_models = latest_metrics['model'].unique()
+            if len(current_models) > 1:
+                avg_cost = latest_metrics['cost_per_1k_tokens'].mean()
+                min_cost = latest_metrics['cost_per_1k_tokens'].min()
+                if avg_cost > 0:
+                    potential_savings_pct = ((avg_cost - min_cost) / avg_cost) * 100
+                    
+                    st.metric(
+                        label="Potential Cost Savings by Optimizing Model Selection",
+                        value=f"{potential_savings_pct:.1f}%",
+                        delta=f"-${avg_cost - min_cost:.4f} per 1K tokens",
+                        delta_color="inverse"
+                    )
+    else:
+        st.warning("No data to display for the selected filters.")
+
+with tab6:
+    st.header("Configure Alerts")
+
+    # Define all available metrics for alerting
+    all_metrics = (
+        model_df.columns.drop(['date', 'model']).tolist() +
+        infra_df.columns.drop(['date', 'component', 'error_rate']).tolist()
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    # --- Alert Configuration UI ---
+    st.subheader("Set a New Alert")
     
-    # Calculate potential savings
-    if not latest_metrics.empty:
-        current_models = latest_metrics['model'].unique()
-        if len(current_models) > 1:
-            avg_cost = latest_metrics['cost_per_1k_tokens'].mean()
-            min_cost = latest_metrics['cost_per_1k_tokens'].min()
-            potential_savings_pct = ((avg_cost - min_cost) / avg_cost) * 100
-            
-            st.metric(
-                label="Potential Cost Savings by Optimizing Model Selection",
-                value=f"{potential_savings_pct:.1f}%",
-                delta=f"${avg_cost - min_cost:.4f} per 1K tokens"
-            )
+    # Initialize session state for alerts if it doesn't exist
+    if 'alerts' not in st.session_state:
+        st.session_state.alerts = []
+
+    with st.form("alert_form", clear_on_submit=True):
+        col1, col2, col3, col4 = st.columns([3, 2, 3, 1])
+        
+        with col1:
+            st.selectbox("Select Metric", options=sorted(list(set(all_metrics))), key="metric_to_alert", placeholder="Select Metric", label_visibility="collapsed", index=None)
+        with col2:
+            st.number_input("Threshold Value", value=None, placeholder="Threshold Value", key="threshold", label_visibility="collapsed")
+        with col3:
+            st.text_input("Email for Notification", placeholder="Email for Notification", key="email_to_alert", label_visibility="collapsed")
+        with col4:
+            submitted = st.form_submit_button("Set Alert")
+
+        if submitted:
+            if st.session_state.email_to_alert and st.session_state.metric_to_alert and st.session_state.threshold is not None:
+                st.session_state.alerts.append({
+                    "metric": st.session_state.metric_to_alert,
+                    "threshold": st.session_state.threshold,
+                    "email": st.session_state.email_to_alert
+                })
+                st.success(f"Alert set for '{st.session_state.metric_to_alert}' with threshold {st.session_state.threshold}.")
+            else:
+                st.error("Please provide a metric, threshold, and an email address.")
+
+    # --- Display Active Alerts ---
+    st.subheader("Active Alerts")
+    if not st.session_state.alerts:
+        st.info("No alerts configured yet.")
+    else:
+        for i, alert in enumerate(st.session_state.alerts):
+            st.info(f"**Alert {i+1}:** Monitor **{alert['metric']}** to not exceed **{alert['threshold']}**. Notify: **{alert['email']}**")
+
+    # --- Check for Triggered Alerts ---
+    st.subheader("Triggered Alerts")
+    
+    triggered_alerts_found = False
+    
+    for alert in st.session_state.alerts:
+        metric = alert['metric']
+        threshold = alert['threshold']
+        
+        # Check if the metric is from model data or infra data
+        if metric in model_df_filtered.columns:
+            latest_values = model_df_filtered.groupby('model')[metric].last()
+            for model, value in latest_values.items():
+                if value > threshold:
+                    st.warning(f"**Alert Triggered:** Model **{model}**'s **{metric}** is **{value:.2f}**, which is above the threshold of **{threshold}**.")
+                    triggered_alerts_found = True
+        elif metric in infra_df_filtered.columns:
+            latest_values = infra_df_filtered.groupby('component')[metric].last()
+            for component, value in latest_values.items():
+                if value > threshold:
+                    st.warning(f"**Alert Triggered:** Component **{component}**'s **{metric}** is **{value:.2f}**, which is above the threshold of **{threshold}**.")
+                    triggered_alerts_found = True
+
+    if not triggered_alerts_found:
+        st.success("All systems normal. No alerts triggered based on the latest data.")
 
 # Add download functionality
 st.sidebar.header("Export Data")
