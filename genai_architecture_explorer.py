@@ -103,6 +103,9 @@ if 'model_data' not in st.session_state or 'infra_data' not in st.session_state:
 model_df = st.session_state.model_data
 infra_df = st.session_state.infra_data
 
+# Calculate error rate on the main dataframe to ensure it's always available
+infra_df['error_rate'] = infra_df['errors_per_minute'] / infra_df['requests_per_minute']
+
 # Date filter for analysis
 date_range = st.sidebar.date_input(
     "Select Date Range",
@@ -257,9 +260,6 @@ with tab2:
     
     # Error rate analysis
     st.subheader("Error Rate Analysis")
-    
-    # Calculate error rates
-    infra_df_filtered['error_rate'] = infra_df_filtered['errors_per_minute'] / infra_df_filtered['requests_per_minute']
     
     fig = px.box(
         infra_df_filtered, 
@@ -416,7 +416,7 @@ with tab4:
     st.header("Optimization Recommendations")
     
     # Calculate model efficiency scores
-    latest_metrics = model_df_filtered[model_df_filtered['date'] == model_df_filtered['date'].max()]
+    latest_metrics = model_df_filtered[model_df_filtered['date'] == model_df_filtered['date'].max()].copy()
     
     if not latest_metrics.empty:
         # Normalize metrics for scoring
