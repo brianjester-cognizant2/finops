@@ -578,7 +578,7 @@ with tab5:
         col1, col2, col3, col4 = st.columns([3, 2, 3, 1])
         
         with col1:
-            st.selectbox("Select Metric", options=sorted(list(set(all_metrics))), key="metric_to_alert", placeholder="Select Metric", label_visibility="collapsed")
+            st.selectbox("Select Metric", options=sorted(list(set(all_metrics))), key="metric_to_alert", placeholder="Select Metric", label_visibility="collapsed", index=None)
         with col2:
             st.number_input("Threshold Value", value=None, placeholder="Threshold Value", key="threshold", label_visibility="collapsed")
         with col3:
