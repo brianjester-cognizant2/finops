@@ -574,26 +574,26 @@ with tab5:
     if 'alerts' not in st.session_state:
         st.session_state.alerts = []
 
-    with st.form("alert_form"):
+    with st.form("alert_form", clear_on_submit=True):
         col1, col2, col3, col4 = st.columns([3, 2, 3, 1])
         
         with col1:
-            metric_to_alert = st.selectbox("Select Metric", options=sorted(list(set(all_metrics))))
+            st.selectbox("Select Metric", options=sorted(list(set(all_metrics))), key="metric_to_alert")
         with col2:
-            threshold = st.number_input("Threshold Value", value=0.0)
+            st.number_input("Threshold Value", key="threshold")
         with col3:
-            email_to_alert = st.text_input("Email for Notification", placeholder="example@domain.com")
+            st.text_input("Email for Notification", placeholder="example@domain.com", key="email_to_alert")
         with col4:
             submitted = st.form_submit_button("Set Alert")
 
         if submitted:
-            if email_to_alert and metric_to_alert:
+            if st.session_state.email_to_alert and st.session_state.metric_to_alert:
                 st.session_state.alerts.append({
-                    "metric": metric_to_alert,
-                    "threshold": threshold,
-                    "email": email_to_alert
+                    "metric": st.session_state.metric_to_alert,
+                    "threshold": st.session_state.threshold,
+                    "email": st.session_state.email_to_alert
                 })
-                st.success(f"Alert set for '{metric_to_alert}' with threshold {threshold}.")
+                st.success(f"Alert set for '{st.session_state.metric_to_alert}' with threshold {st.session_state.threshold}.")
             else:
                 st.error("Please provide a metric and an email address.")
 
