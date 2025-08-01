@@ -118,6 +118,9 @@ if 'model_data' not in st.session_state or 'infra_data' not in st.session_state:
 model_df = st.session_state.model_data
 infra_df = st.session_state.infra_data
 
+# Calculate error rate on the main dataframe to ensure it's always available
+infra_df['error_rate'] = infra_df['errors_per_minute'] / infra_df['requests_per_minute']
+
 # Date filter for analysis
 date_range = st.sidebar.date_input(
     "Select Date Range",
@@ -161,7 +164,7 @@ model_df_filtered = model_df_filtered[model_df_filtered['model'].isin(selected_m
 infra_df_filtered = infra_df_filtered[infra_df_filtered['component'].isin(selected_components)]
 
 # Main content
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Model Performance", "Infrastructure Metrics", "Architecture Overview", "Optimization Recommendations", "Token Usage Analysis"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Model Performance", "Infrastructure Metrics", "Architecture Overview", "Optimization Recommendations", "Token Usage Analysis", "Alerts"])
 
 with tab1:
     st.header("Model Performance Analysis")
@@ -272,9 +275,6 @@ with tab2:
     
     # Error rate analysis
     st.subheader("Error Rate Analysis")
-    
-    # Calculate error rates
-    infra_df_filtered['error_rate'] = infra_df_filtered['errors_per_minute'] / infra_df_filtered['requests_per_minute']
     
     fig = px.box(
         infra_df_filtered, 
@@ -624,6 +624,79 @@ with tab5:
                     )
     else:
         st.warning("No data to display for the selected filters.")
+
+with tab6:
+    st.header("Configure Alerts")
+
+    # Define all available metrics for alerting
+    all_metrics = (
+        model_df.columns.drop(['date', 'model']).tolist() +
+        infra_df.columns.drop(['date', 'component', 'error_rate']).tolist()
+    )
+    
+    # --- Alert Configuration UI ---
+    st.subheader("Set a New Alert")
+    
+    # Initialize session state for alerts if it doesn't exist
+    if 'alerts' not in st.session_state:
+        st.session_state.alerts = []
+
+    with st.form("alert_form", clear_on_submit=True):
+        col1, col2, col3, col4 = st.columns([3, 2, 3, 1])
+        
+        with col1:
+            st.selectbox("Select Metric", options=sorted(list(set(all_metrics))), key="metric_to_alert", placeholder="Select Metric", label_visibility="collapsed", index=None)
+        with col2:
+            st.number_input("Threshold Value", value=None, placeholder="Threshold Value", key="threshold", label_visibility="collapsed")
+        with col3:
+            st.text_input("Email for Notification", placeholder="Email for Notification", key="email_to_alert", label_visibility="collapsed")
+        with col4:
+            submitted = st.form_submit_button("Set Alert")
+
+        if submitted:
+            if st.session_state.email_to_alert and st.session_state.metric_to_alert and st.session_state.threshold is not None:
+                st.session_state.alerts.append({
+                    "metric": st.session_state.metric_to_alert,
+                    "threshold": st.session_state.threshold,
+                    "email": st.session_state.email_to_alert
+                })
+                st.success(f"Alert set for '{st.session_state.metric_to_alert}' with threshold {st.session_state.threshold}.")
+            else:
+                st.error("Please provide a metric, threshold, and an email address.")
+
+    # --- Display Active Alerts ---
+    st.subheader("Active Alerts")
+    if not st.session_state.alerts:
+        st.info("No alerts configured yet.")
+    else:
+        for i, alert in enumerate(st.session_state.alerts):
+            st.info(f"**Alert {i+1}:** Monitor **{alert['metric']}** to not exceed **{alert['threshold']}**. Notify: **{alert['email']}**")
+
+    # --- Check for Triggered Alerts ---
+    st.subheader("Triggered Alerts")
+    
+    triggered_alerts_found = False
+    
+    for alert in st.session_state.alerts:
+        metric = alert['metric']
+        threshold = alert['threshold']
+        
+        # Check if the metric is from model data or infra data
+        if metric in model_df_filtered.columns:
+            latest_values = model_df_filtered.groupby('model')[metric].last()
+            for model, value in latest_values.items():
+                if value > threshold:
+                    st.warning(f"**Alert Triggered:** Model **{model}**'s **{metric}** is **{value:.2f}**, which is above the threshold of **{threshold}**.")
+                    triggered_alerts_found = True
+        elif metric in infra_df_filtered.columns:
+            latest_values = infra_df_filtered.groupby('component')[metric].last()
+            for component, value in latest_values.items():
+                if value > threshold:
+                    st.warning(f"**Alert Triggered:** Component **{component}**'s **{metric}** is **{value:.2f}**, which is above the threshold of **{threshold}**.")
+                    triggered_alerts_found = True
+
+    if not triggered_alerts_found:
+        st.success("All systems normal. No alerts triggered based on the latest data.")
 
 # Add download functionality
 st.sidebar.header("Export Data")
