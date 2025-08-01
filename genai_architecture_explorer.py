@@ -47,7 +47,7 @@ def generate_sample_data():
         
         for date in dates:
             # Add some trend and random noise
-            trend_factor = 1 - (0.001 * (date - dates[0]).days)  # Gradual improvement over time
+            trend_factor = 1 - (0.0001 * (date - dates[0]).days)  # Gradual improvement over time
             random_factor = np.random.normal(1, 0.05)  # Daily variation
             
             latency = base_latency * trend_factor * random_factor
@@ -56,9 +56,9 @@ def generate_sample_data():
             cost = base_cost * trend_factor * random_factor
             
             # Token usage simulation
-            avg_tokens_per_minute = throughput / ( 60 * 24 ) * properties['avg_tokens_per_request'] * np.random.normal(1, 0.15)
+            avg_tokens_per_minute = ( throughput / ( 60 * 24 ) )* properties['avg_tokens_per_request'] * np.random.normal(1, 0.15)
             max_tokens_per_minute = avg_tokens_per_minute * np.random.uniform(1.5, 7.5)
-            minute_samples = np.random.normal(max_tokens_per_minute, max_tokens_per_minute * 0.4, 24 * 60)
+            minute_samples = np.random.normal(max_tokens_per_minute, max_tokens_per_minute * 0.4)
             exceedances = np.sum(minute_samples > properties['token_limit'])
             
             model_data.append({
