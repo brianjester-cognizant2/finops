@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
+import time
 
 # Set page configuration
 st.set_page_config(
@@ -23,6 +24,20 @@ identify optimization opportunities, and visualize key performance metrics.
 
 # Sidebar configuration
 st.sidebar.header("Settings")
+
+# Show modal window
+@st.dialog("Remediate")
+def show_modal():
+  with st.spinner("Connecting to API..."):
+      time.sleep(1)
+  with st.spinner("Authenticating..."):
+      time.sleep(1)
+  with st.spinner("Updating..."):
+      time.sleep(1)
+  with st.spinner("Testing..."):
+      time.sleep(1)
+  st.success("Done!")
+  time.sleep(1)
 
 # Sample data generation function
 def generate_sample_data():
@@ -604,30 +619,31 @@ with tab4:
 
     # --- UI Display ---
 
-    # Create the compliance checks dataframe first to calculate metrics from it
-    checks_list = [
-        "Budget implemented", "Cost alert implemented", "Token alert implemented",
-        "Storage alert implemented", "Compute alert implemented", "Labels implemented",
-        "Chunk size based on content type check", "Multi agent implemented",
-        "Agent payload watch implemented", "Semantic caching implemented",
-        "GPTCache implemented", "Langchain caching implemented",
-        "Agent feedback implemented", "Model size check", "Model version check",
-        "Subscription check", "Anomaly detection check"
-    ]
-    
-    priorities = np.random.choice(['High', 'Medium', 'Low'], size=len(checks_list))
-    implemented = np.random.choice(['No', 'Yes', 'N/A'], size=len(checks_list))
-    
-    checks_df = pd.DataFrame({
-        'Check': checks_list,
-        'Priority': priorities,
-        'Implemented': implemented
-    })
+    # --- Session state for checks_df ---
+    if 'checks_df' not in st.session_state:
+        checks_list = [
+            "Budget implemented", "Cost alert implemented", "Token alert implemented",
+            "Storage alert implemented", "Compute alert implemented", "Labels implemented",
+            "Chunk size based on content type check", "Multi agent implemented",
+            "Agent payload watch implemented", "Semantic caching implemented",
+            "GPTCache implemented", "Langchain caching implemented",
+            "Agent feedback implemented", "Model size check", "Model version check",
+            "Subscription check", "Anomaly detection check"
+        ]
+        priorities = np.random.choice(['High', 'Medium', 'Low'], size=len(checks_list))
+        action_values = np.random.choice(['Remediate', 'Done', 'N/A'], size=len(checks_list))
+        st.session_state.checks_df = pd.DataFrame({
+            'Check': checks_list,
+            'Priority': priorities,
+            'Action': action_values
+        })
+
+    checks_df = st.session_state.checks_df
 
     # Calculate counts for metrics from the compliance checks table
-    high_issues = len(checks_df[(checks_df['Priority'] == 'High') & (checks_df['Implemented'] == 'No')])
-    medium_issues = len(checks_df[(checks_df['Priority'] == 'Medium') & (checks_df['Implemented'] == 'No')])
-    low_issues = len(checks_df[(checks_df['Priority'] == 'Low') & (checks_df['Implemented'] == 'No')])
+    high_issues = len(checks_df[(checks_df['Priority'] == 'High') & (checks_df['Action'] == 'Remediate')])
+    medium_issues = len(checks_df[(checks_df['Priority'] == 'Medium') & (checks_df['Action'] == 'Remediate')])
+    low_issues = len(checks_df[(checks_df['Priority'] == 'Low') & (checks_df['Action'] == 'Remediate')])
     # Display metrics in a horizontal row
     st.markdown("""
     <style>
@@ -652,6 +668,17 @@ with tab4:
     .metric-card.red p { color: #ef4444; }
     .metric-card.yellow p { color: #facc15; }
     .metric-card.blue p { color: #60a5fa; }
+
+    /* Custom style for the Remediate button in the Optimization Checks table */
+    div[data-testid="stHorizontalBlock"] > div:nth-child(3) [data-testid="stButton"] > button {
+        background-color: #22c55e;
+        color: white;
+        border-color: #16a34a;
+    }
+    div[data-testid="stHorizontalBlock"] > div:nth-child(3) [data-testid="stButton"] > button:hover {
+        background-color: #16a34a;
+        color: white;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -682,27 +709,41 @@ with tab4:
 
     st.subheader("Optimization Checks")
 
+    # Add a toggle to show/hide N/A items
+    show_na_items = st.toggle("Show N/A items", value=False)
+
+    # Filter the DataFrame based on the toggle state
+    if show_na_items:
+        display_checks_df = checks_df
+    else:
+        display_checks_df = checks_df[checks_df['Action'] != 'N/A']
+
     # Header for the checks table
     header_cols = st.columns((5, 2, 2))
     header_cols[0].markdown("**Check**")
     header_cols[1].markdown("**Priority**")
-    header_cols[2].markdown("**Implemented**")
+    header_cols[2].markdown("**Action**")
     st.markdown("---")
 
     # Iterate over checks and display them as a custom table
-    for index, row in checks_df.iterrows():
-        check, priority, implemented = row['Check'], row['Priority'], row['Implemented']
+    for index, row in display_checks_df.iterrows():
+        check, priority, action = row['Check'], row['Priority'], row['Action']
         
         priority_color = '#ef4444' if priority == 'High' else '#facc15' if priority == 'Medium' else '#60a5fa'
-        impl_color = '#34d399' if implemented == 'Yes' else '#ef4444' if implemented == 'No' else '#60a5fa'
+        action_color = '#34d399' if action == 'Done' else '#ef4444' if action == 'Remediate' else '#60a5fa'
 
         row_cols = st.columns((5, 2, 2))
         
-        check_text = f"{check} <a href='#' style='color: #60a5fa; text-decoration: none;'>(Remediate)</a>" if implemented == 'No' else check
-
-        row_cols[0].markdown(f'<span style="color:{impl_color}">{check_text}</span>', unsafe_allow_html=True)
+        row_cols[0].markdown(f'{check}', unsafe_allow_html=True)
         row_cols[1].markdown(f'<span style="color:{priority_color}">{priority}</span>', unsafe_allow_html=True)
-        row_cols[2].markdown(f'<span style="color:{impl_color}">{implemented}</span>', unsafe_allow_html=True)
+        if action == 'Remediate':
+            if row_cols[2].button("Remediate", key=f"remediate_{index}"):
+                show_modal()
+                # Update the DataFrame in session state
+                st.session_state.checks_df.loc[index, 'Action'] = 'Done'
+                st.rerun()
+        else:
+            row_cols[2].markdown(f'<span style="color:{action_color}">{action}</span>', unsafe_allow_html=True)
 
     # Display Model Efficiency Rankings
     if not model_recommendations.empty:
