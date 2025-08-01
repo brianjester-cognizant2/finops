@@ -521,8 +521,11 @@ with tab3:
 with tab4:
     st.header("Optimization Recommendations")
     
+    # --- Data Processing for Recommendations ---
+    
     # Calculate model efficiency scores
     latest_metrics_raw = model_df_filtered[model_df_filtered['date'] == model_df_filtered['date'].max()]
+    model_recommendations = pd.DataFrame()
     
     if not latest_metrics_raw.empty:
         latest_metrics = latest_metrics_raw.copy()
@@ -552,7 +555,157 @@ with tab4:
         
         # Sort by efficiency score
         model_recommendations = latest_metrics[['model', 'efficiency_score', 'latency_ms', 'throughput_qps', 'accuracy', 'cost_per_1k_tokens']].sort_values('efficiency_score', ascending=False)
+
+    # Generate recommendations based on data analysis
+    recommendations = []
+    
+    # Check for model-specific recommendations
+    if not model_recommendations.empty:
+        best_model = model_recommendations.iloc[0]['model']
+        recommendations.append({'severity': 'low', 'text': f"🔹 Consider using **{best_model}** as your primary model based on overall efficiency score."})
         
+        cost_efficient = model_recommendations.sort_values('cost_per_1k_tokens').iloc[0]['model']
+        if cost_efficient != best_model:
+            recommendations.append({'severity': 'medium', 'text': f"🔹 For cost-sensitive applications, **{cost_efficient}** provides the best value."})
+            
+        low_latency = model_recommendations.sort_values('latency_ms').iloc[0]['model']
+        if low_latency != best_model:
+            recommendations.append({'severity': 'medium', 'text': f"🔹 For latency-critical applications, **{low_latency}** provides the fastest response times."})
+
+    # Check for infrastructure recommendations
+    if not bottlenecks.empty:
+        cpu_bottlenecks = bottlenecks[bottlenecks['cpu_max'] > 80]['component'].tolist()
+        if cpu_bottlenecks:
+            recommendations.append({'severity': 'high', 'text': f"🔹 Consider scaling up or out the following components with high CPU usage: **{', '.join(cpu_bottlenecks)}**."})
+        
+        memory_bottlenecks = bottlenecks[bottlenecks['memory_max'] > 80]['component'].tolist()
+        if memory_bottlenecks:
+            recommendations.append({'severity': 'high', 'text': f"🔹 Increase memory allocation for: **{', '.join(memory_bottlenecks)}**."})
+            
+        response_bottlenecks = bottlenecks[bottlenecks['response_max'] > 300]['component'].tolist()
+        if response_bottlenecks:
+            recommendations.append({'severity': 'high', 'text': f"🔹 Optimize or scale the following components to reduce response times: **{', '.join(response_bottlenecks)}**."})
+
+    # Error rate recommendations
+    if not infra_df_filtered.empty and 'error_rate' in infra_df_filtered.columns:
+        high_error_components = infra_df_filtered.groupby('component')['error_rate'].mean()
+        high_error_components = high_error_components[high_error_components > 0.01].index.tolist()
+        if high_error_components:
+            recommendations.append({'severity': 'medium', 'text': f"🔹 Investigate and reduce error rates in: **{', '.join(high_error_components)}**."})
+
+    # Cache optimization recommendations
+    cache_data = infra_df_filtered[infra_df_filtered['component'] == 'Cache']
+    if not cache_data.empty and cache_data['cpu_usage_percent'].mean() > 60:
+        recommendations.append({'severity': 'medium', 'text': "🔹 Consider implementing a more efficient caching strategy or scaling your cache layer."})
+
+    # Architecture recommendations
+    recommendations.append({'severity': 'low', 'text': "🔹 Consider implementing a model router to dynamically select the optimal model based on request characteristics."})
+    recommendations.append({'severity': 'low', 'text': "🔹 Add redundancy to critical components to improve system reliability."})
+
+    # --- UI Display ---
+
+    # Create the compliance checks dataframe first to calculate metrics from it
+    checks_list = [
+        "Budget implemented", "Cost alert implemented", "Token alert implemented",
+        "Storage alert implemented", "Compute alert implemented", "Labels implemented",
+        "Chunk size based on content type check", "Multi agent implemented",
+        "Agent payload watch implemented", "Semantic caching implemented",
+        "GPTCache implemented", "Langchain caching implemented",
+        "Agent feedback implemented", "Model size check", "Model version check",
+        "Subscription check", "Anomaly detection check"
+    ]
+    
+    priorities = np.random.choice(['High', 'Medium', 'Low'], size=len(checks_list))
+    implemented = np.random.choice(['No', 'Yes', 'N/A'], size=len(checks_list))
+    
+    checks_df = pd.DataFrame({
+        'Check': checks_list,
+        'Priority': priorities,
+        'Implemented': implemented
+    })
+
+    # Calculate counts for metrics from the compliance checks table
+    high_issues = len(checks_df[(checks_df['Priority'] == 'High') & (checks_df['Implemented'] == 'No')])
+    medium_issues = len(checks_df[(checks_df['Priority'] == 'Medium') & (checks_df['Implemented'] == 'No')])
+    low_issues = len(checks_df[(checks_df['Priority'] == 'Low') & (checks_df['Implemented'] == 'No')])
+    # Display metrics in a horizontal row
+    st.markdown("""
+    <style>
+    .metric-card {
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        background-color: #262730;
+        text-align: center;
+        border: 1px solid #374151;
+    }
+    .metric-card h3 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1rem;
+        font-weight: 500;
+        color: #9ca3af;
+    }
+    .metric-card p {
+        margin: 0;
+        font-size: 3rem;
+        font-weight: 700;
+    }
+    .metric-card.red p { color: #ef4444; }
+    .metric-card.yellow p { color: #facc15; }
+    .metric-card.blue p { color: #60a5fa; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(f"""
+        <div class="metric-card red">
+            <h3>High Priority</h3>
+            <p>{high_issues}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card yellow">
+            <h3>Medium Priority</h3>
+            <p>{medium_issues}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col3:
+        st.markdown(f"""
+        <div class="metric-card blue">
+            <h3>Low Priority</h3>
+            <p>{low_issues}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+
+    st.subheader("Optimization Checks")
+
+    # Header for the checks table
+    header_cols = st.columns((5, 2, 2))
+    header_cols[0].markdown("**Check**")
+    header_cols[1].markdown("**Priority**")
+    header_cols[2].markdown("**Implemented**")
+    st.markdown("---")
+
+    # Iterate over checks and display them as a custom table
+    for index, row in checks_df.iterrows():
+        check, priority, implemented = row['Check'], row['Priority'], row['Implemented']
+        
+        priority_color = '#ef4444' if priority == 'High' else '#facc15' if priority == 'Medium' else '#60a5fa'
+        impl_color = '#34d399' if implemented == 'Yes' else '#ef4444' if implemented == 'No' else '#60a5fa'
+
+        row_cols = st.columns((5, 2, 2))
+        
+        check_text = f"{check} <a href='#' style='color: #60a5fa; text-decoration: none;'>(Remediate)</a>" if implemented == 'No' else check
+
+        row_cols[0].markdown(f'<span style="color:{impl_color}">{check_text}</span>', unsafe_allow_html=True)
+        row_cols[1].markdown(f'<span style="color:{priority_color}">{priority}</span>', unsafe_allow_html=True)
+        row_cols[2].markdown(f'<span style="color:{impl_color}">{implemented}</span>', unsafe_allow_html=True)
+
+    # Display Model Efficiency Rankings
+    if not model_recommendations.empty:
         st.subheader("Model Efficiency Rankings")
         
         # test Convert to a format suitable for st.dataframe with colored bars
@@ -585,64 +738,12 @@ with tab4:
             },
             hide_index=True,
         )
-    
-    # Generate recommendations based on data analysis
-    st.subheader("Automatic Recommendations")
-    
-    recommendations = []
-    
-    # Check for model-specific recommendations
-    if not latest_metrics.empty:
-        # Find most efficient model
-        best_model = model_recommendations.iloc[0]['model']
-        recommendations.append(f"🔹 Consider using **{best_model}** as your primary model based on overall efficiency score.")
-        
-        # Check for cost optimization
-        cost_efficient = model_recommendations.sort_values('cost_per_1k_tokens').iloc[0]['model']
-        if cost_efficient != best_model:
-            recommendations.append(f"🔹 For cost-sensitive applications, **{cost_efficient}** provides the best value.")
-        
-        # Check for latency optimization
-        low_latency = model_recommendations.sort_values('latency_ms').iloc[0]['model']
-        if low_latency != best_model:
-            recommendations.append(f"🔹 For latency-critical applications, **{low_latency}** provides the fastest response times.")
-    
-    # Check for infrastructure recommendations
-    if not bottlenecks.empty:
-        # CPU bottlenecks
-        cpu_bottlenecks = bottlenecks[bottlenecks['cpu_max'] > 80]['component'].tolist()
-        if cpu_bottlenecks:
-            recommendations.append(f"🔹 Consider scaling up or out the following components with high CPU usage: **{', '.join(cpu_bottlenecks)}**.")
-        
-        # Memory bottlenecks
-        memory_bottlenecks = bottlenecks[bottlenecks['memory_max'] > 80]['component'].tolist()
-        if memory_bottlenecks:
-            recommendations.append(f"🔹 Increase memory allocation for: **{', '.join(memory_bottlenecks)}**.")
-        
-        # Response time bottlenecks
-        response_bottlenecks = bottlenecks[bottlenecks['response_max'] > 300]['component'].tolist()
-        if response_bottlenecks:
-            recommendations.append(f"🔹 Optimize or scale the following components to reduce response times: **{', '.join(response_bottlenecks)}**.")
-    
-    # Error rate recommendations
-    high_error_components = infra_df_filtered.groupby('component')['error_rate'].mean()
-    high_error_components = high_error_components[high_error_components > 0.01].index.tolist()
-    if high_error_components:
-        recommendations.append(f"🔹 Investigate and reduce error rates in: **{', '.join(high_error_components)}**.")
-    
-    # Cache optimization recommendations
-    cache_data = infra_df_filtered[infra_df_filtered['component'] == 'Cache']
-    if not cache_data.empty and cache_data['cpu_usage_percent'].mean() > 60:
-        recommendations.append("🔹 Consider implementing a more efficient caching strategy or scaling your cache layer.")
-    
-    # Architecture recommendations
-    recommendations.append("🔹 Consider implementing a model router to dynamically select the optimal model based on request characteristics.")
-    recommendations.append("🔹 Add redundancy to critical components to improve system reliability.")
-    
+
     # Display recommendations
+    st.subheader("Automatic Recommendations")
     if recommendations:
         for rec in recommendations:
-            st.write(rec)
+            st.write(rec['text'])
     else:
         st.write("No specific recommendations at this time.")
     
