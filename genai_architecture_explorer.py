@@ -578,16 +578,16 @@ with tab5:
         col1, col2, col3, col4 = st.columns([3, 2, 3, 1])
         
         with col1:
-            st.selectbox("Select Metric", options=sorted(list(set(all_metrics))), key="metric_to_alert")
+            st.selectbox("Select Metric", options=sorted(list(set(all_metrics))), key="metric_to_alert", placeholder="Select Metric", label_visibility="collapsed")
         with col2:
-            st.number_input("Threshold Value", key="threshold")
+            st.number_input("Threshold Value", value=None, placeholder="Threshold Value", key="threshold", label_visibility="collapsed")
         with col3:
-            st.text_input("Email for Notification", placeholder="example@domain.com", key="email_to_alert")
+            st.text_input("Email for Notification", placeholder="Email for Notification", key="email_to_alert", label_visibility="collapsed")
         with col4:
             submitted = st.form_submit_button("Set Alert")
 
         if submitted:
-            if st.session_state.email_to_alert and st.session_state.metric_to_alert:
+            if st.session_state.email_to_alert and st.session_state.metric_to_alert and st.session_state.threshold is not None:
                 st.session_state.alerts.append({
                     "metric": st.session_state.metric_to_alert,
                     "threshold": st.session_state.threshold,
@@ -595,7 +595,7 @@ with tab5:
                 })
                 st.success(f"Alert set for '{st.session_state.metric_to_alert}' with threshold {st.session_state.threshold}.")
             else:
-                st.error("Please provide a metric and an email address.")
+                st.error("Please provide a metric, threshold, and an email address.")
 
     # --- Display Active Alerts ---
     st.subheader("Active Alerts")
