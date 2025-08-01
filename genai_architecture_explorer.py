@@ -47,7 +47,7 @@ def generate_sample_data():
         
         for date in dates:
             # Add some trend and random noise
-            trend_factor = 1 - (0.001 * (date - dates[0]).days)  # Gradual improvement over time
+            trend_factor = 1 - (0.0001 * (date - dates[0]).days)  # Gradual improvement over time
             random_factor = np.random.normal(1, 0.05)  # Daily variation
             
             latency = base_latency * trend_factor * random_factor
@@ -56,9 +56,9 @@ def generate_sample_data():
             cost = base_cost * trend_factor * random_factor
             
             # Token usage simulation
-            avg_tokens_per_minute = throughput / ( 60 * 24 ) * properties['avg_tokens_per_request'] * np.random.normal(1, 0.15)
+            avg_tokens_per_minute = ( throughput / ( 60 * 24 ) )* properties['avg_tokens_per_request'] * np.random.normal(1, 0.15)
             max_tokens_per_minute = avg_tokens_per_minute * np.random.uniform(1.5, 7.5)
-            minute_samples = np.random.normal(max_tokens_per_minute, max_tokens_per_minute * 0.4, 24 * 60)
+            minute_samples = np.random.normal(max_tokens_per_minute, max_tokens_per_minute * 0.4)
             exceedances = np.sum(minute_samples > properties['token_limit'])
             
             model_data.append({
@@ -72,7 +72,8 @@ def generate_sample_data():
                 'gpu_utilization': np.random.uniform(0.4, 0.95),
                 'avg_tokens_per_minute': avg_tokens_per_minute,
                 'max_tokens_per_minute': max_tokens_per_minute,
-                'token_limit_exceeded_count': exceedances
+                'token_limit_exceeded_count': exceedances,
+                'token_limit': properties['token_limit']
             })
     
     # Infrastructure data
@@ -777,6 +778,22 @@ with tab5:
             line_dash='Metric', 
             title="Tokens per Minute (Average vs Max)"
         )
+
+        # Get model limits and colors to add threshold lines
+        # We get the colors from the figure itself to ensure they match
+        model_limits = df.groupby('model')['token_limit'].first()
+        model_colors = {trace.name: trace.line.color for trace in fig_token_rate.data}
+
+        for model_name, limit in model_limits.items():
+            if model_name in model_colors:
+                fig_token_rate.add_hline(
+                    y=limit,
+                    line_dash="dot",
+                    annotation_text=f"{model_name} Limit",
+                    annotation_position="bottom right",
+                    line_color=model_colors[model_name]
+                )
+
         st.plotly_chart(fig_token_rate, use_container_width=True)
 
         st.subheader("Token Limit Exceedances")
@@ -790,17 +807,12 @@ with tab5:
         fig_daily_cost.update_layout(yaxis_title="Cost ($)")
         st.plotly_chart(fig_daily_cost, use_container_width=True)
 
-        # Weekly average cost per 1k tokens
-        model_cost_data = df.groupby(['model', pd.Grouper(key='date', freq='W')])['cost_per_1k_tokens'].mean().reset_index()
-        fig_weekly_cost = px.line(
-            model_cost_data, 
-            x='date', 
-            y='cost_per_1k_tokens', 
-            color='model',
-            title="Weekly Average Cost per 1K Tokens"
-        )
-        st.plotly_chart(fig_weekly_cost, use_container_width=True)
-    
+        # Cumulative cost per model
+        df['cumulative_cost'] = df.sort_values('date').groupby('model')['daily_token_cost'].cumsum()
+        fig_cumulative_cost = px.line(df, x='date', y='cumulative_cost', color='model', title="Cumulative Token Cost per Model ($)")
+        fig_cumulative_cost.update_layout(yaxis_title="Cumulative Cost ($)")
+        st.plotly_chart(fig_cumulative_cost, use_container_width=True)
+
         # Calculate potential savings
         latest_metrics = df[df['date'] == df['date'].max()]
         if not latest_metrics.empty:
@@ -817,6 +829,38 @@ with tab5:
                         delta=f"-${avg_cost - min_cost:.4f} per 1K tokens",
                         delta_color="inverse"
                     )
+
+        st.subheader("Token Limit Utilization")
+        st.markdown("This section identifies models where the peak token usage is consistently far below the configured token limit, suggesting an opportunity to right-size the limit to potentially reduce costs or re-allocate resources.")
+
+        if 'token_limit' in df.columns:
+            utilization_df = df.groupby('model').agg(
+                avg_max_tokens=('max_tokens_per_minute', 'mean'),
+                token_limit=('token_limit', 'first')
+            ).reset_index()
+
+            utilization_df['utilization_pct'] = (utilization_df['avg_max_tokens'] / utilization_df['token_limit']) * 100
+
+            underutilized_models = utilization_df[utilization_df['utilization_pct'] < 25]
+
+            if not underutilized_models.empty:
+                st.warning("Found models with low token limit utilization:")
+                for index, row in underutilized_models.iterrows():
+                    st.markdown(f"- **{row['model']}**: Average peak usage is **{row['avg_max_tokens']:.0f} tokens/min**, which is only **{row['utilization_pct']:.1f}%** of its **{row['token_limit']:,}** token limit. Consider lowering the limit to better match actual usage.")
+            else:
+                st.success("All models show healthy token limit utilization based on peak usage.")
+
+            fig_utilization = px.bar(
+                utilization_df.sort_values('utilization_pct', ascending=False),
+                x='model',
+                y='utilization_pct',
+                title='Average Peak Token Usage vs. Token Limit',
+                labels={'utilization_pct': 'Utilization of Token Limit (%)', 'model': 'Model'},
+                color='utilization_pct',
+                color_continuous_scale=px.colors.sequential.Viridis
+            )
+            fig_utilization.add_hline(y=25, line_dash="dash", annotation_text="Low Utilization Threshold (25%)", annotation_position="bottom right")
+            st.plotly_chart(fig_utilization, use_container_width=True)
     else:
         st.warning("No data to display for the selected filters.")
 
