@@ -565,23 +565,29 @@ with tab4:
     
     st.markdown("---")
 
-    st.subheader("Compliance & Best Practice Checks")
-    
-    def style_priority(val):
-        color = '#facc15' if val == 'Medium' else '#ef4444' if val == 'High' else '#60a5fa'
-        return f'color: {color}'
+    st.subheader("Optimization Checks")
 
-    def style_implemented(val):
-        if val == 'Yes':
-            color = '#34d399'  # Green
-        elif val == 'No':
-            color = '#ef4444'  # Red
-        else:  # N/A
-            color = '#60a5fa'  # Blue
-        return f'color: {color}'
+    # Header for the checks table
+    header_cols = st.columns((5, 2, 2))
+    header_cols[0].markdown("**Check**")
+    header_cols[1].markdown("**Priority**")
+    header_cols[2].markdown("**Implemented**")
+    st.markdown("---")
 
+    # Iterate over checks and display them as a custom table
+    for index, row in checks_df.iterrows():
+        check, priority, implemented = row['Check'], row['Priority'], row['Implemented']
+        
+        priority_color = '#ef4444' if priority == 'High' else '#facc15' if priority == 'Medium' else '#60a5fa'
+        impl_color = '#34d399' if implemented == 'Yes' else '#ef4444' if implemented == 'No' else '#60a5fa'
 
-    st.dataframe(checks_df.style.applymap(style_priority, subset=['Priority']).applymap(style_implemented, subset=['Implemented']), use_container_width=True, hide_index=True)
+        row_cols = st.columns((5, 2, 2))
+        
+        check_text = f"{check} <a href='#' style='color: #60a5fa; text-decoration: none;'>(Remediate)</a>" if implemented == 'No' else check
+
+        row_cols[0].markdown(f'<span style="color:{impl_color}">{check_text}</span>', unsafe_allow_html=True)
+        row_cols[1].markdown(f'<span style="color:{priority_color}">{priority}</span>', unsafe_allow_html=True)
+        row_cols[2].markdown(f'<span style="color:{impl_color}">{implemented}</span>', unsafe_allow_html=True)
 
     # Display Model Efficiency Rankings
     if not model_recommendations.empty:
