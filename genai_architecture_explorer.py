@@ -27,7 +27,7 @@ st.sidebar.header("Settings")
 # Sample data generation function
 def generate_sample_data():
     np.random.seed(42)
-    dates = pd.date_range(start='2023-01-01', end='2023-06-30', freq='D')
+    dates = pd.date_range(start='2023-01-01', end= pd.Timestamp.today().strftime('%Y-%m-%d'), freq='D')
     
     # Model performance data
     models = {
@@ -213,30 +213,57 @@ with tab1:
     
     # Metric trends over time
     st.subheader("Model Metric Trends Over Time")
-    
+
+    # Graph type selector for model metric trends
+    model_graph_type = st.radio(
+        "Select Graph Type for Model Metrics",
+        options=["Line", "Bar", "Area"],
+        horizontal=True,
+        key="model_metric_graph_type"
+    )
+
     cols = st.columns(len(model_metrics) if len(model_metrics) > 0 else 1)
-    
+
     for i, metric in enumerate(model_metrics):
         with cols[i % len(cols)]:
             pretty_metric = metric.replace('_', ' ').title()
             st.write(f"**{pretty_metric}**")
-            
-            fig = px.line(
-                model_df_filtered, 
-                x='date', 
-                y=metric, 
-                color='model',
-                title=f"{pretty_metric} Over Time"
-            )
-            
-            # Add a trend line for each model
-            for model in selected_models:
-                model_data = model_df_filtered[model_df_filtered['model'] == model]
-                if len(model_data) > 1:  # Need at least 2 points for a trendline
-                    fig.add_traces(
-                        px.scatter(model_data, x='date', y=metric, trendline='lowess').data[1]
-                    )
-            
+
+            if model_graph_type == "Line":
+                fig = px.line(
+                    model_df_filtered, 
+                    x='date', 
+                    y=metric, 
+                    color='model',
+                    title=f"{pretty_metric} Over Time"
+                )
+            elif model_graph_type == "Bar":
+                fig = px.bar(
+                    model_df_filtered, 
+                    x='date', 
+                    y=metric, 
+                    color='model',
+                    barmode='group',
+                    title=f"{pretty_metric} Over Time"
+                )
+            elif model_graph_type == "Area":
+                fig = px.area(
+                    model_df_filtered, 
+                    x='date', 
+                    y=metric, 
+                    color='model',
+                    title=f"{pretty_metric} Over Time"
+                )
+
+            # Add a trend line for each model (only for line chart)
+            if model_graph_type == "Line":
+                for model in selected_models:
+                    model_data = model_df_filtered[model_df_filtered['model'] == model]
+                    if len(model_data) > 1:  # Need at least 2 points for a trendline
+                        fig.add_traces(
+                            px.scatter(model_data, x='date', y=metric, trendline='lowess').data[1]
+                        )
+
             st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
@@ -248,30 +275,81 @@ with tab2:
     metric_options = ['cpu_usage_percent', 'memory_usage_percent', 'requests_per_minute', 'errors_per_minute', 'avg_response_time_ms']
     selected_infra_metric = st.selectbox("Select Metric", metric_options, index=0)
     
-    # Create line chart for the selected metric
-    fig = px.line(
-        infra_df_filtered, 
-        x='date', 
-        y=selected_infra_metric, 
-        color='component',
-        title=f"{selected_infra_metric.replace('_', ' ').title()} Over Time"
+    # Graph type selector for component load
+    graph_type = st.radio(
+        "Select Graph Type for Component Load",
+        options=["Line", "Bar"],
+        horizontal=True,
+        key="component_load_graph_type"
     )
     
+    if graph_type == "Line":
+        fig = px.line(
+            infra_df_filtered, 
+            x='date', 
+            y=selected_infra_metric, 
+            color='component',
+            title=f"{selected_infra_metric.replace('_', ' ').title()} Over Time"
+        )
+    else:
+        fig = px.bar(
+            infra_df_filtered, 
+            x='date', 
+            y=selected_infra_metric, 
+            color='component',
+            barmode='group',
+            title=f"{selected_infra_metric.replace('_', ' ').title()} Over Time"
+        )
     st.plotly_chart(fig, use_container_width=True)
     
     # Correlation heatmap between metrics
     st.subheader("Correlation Between Infrastructure Metrics")
     
+    # Graph type selector for correlation
+    corr_graph_type = st.radio(
+        "Select Graph Type for Correlation",
+        options=["Heatmap", "Bar", "Line"],
+        horizontal=True,
+        key="correlation_graph_type"
+    )
+    
     # Calculate average metrics by component
     avg_metrics_by_component = infra_df_filtered.groupby('component')[metric_options].mean().reset_index()
+    correlation_matrix = avg_metrics_by_component[metric_options].corr()
     
-    # Create heatmap
-    if not avg_metrics_by_component.empty:
+    if corr_graph_type == "Heatmap":
         fig, ax = plt.subplots(figsize=(10, 8))
-        correlation_matrix = avg_metrics_by_component[metric_options].corr()
         sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f", ax=ax)
         plt.title('Correlation Between Infrastructure Metrics')
         st.pyplot(fig)
+    elif corr_graph_type == "Bar":
+        # Show correlation of each metric with the first metric as a bar chart
+        first_metric = metric_options[0]
+        corr_with_first = correlation_matrix[first_metric].drop(first_metric)
+        fig = px.bar(
+            x=corr_with_first.index,
+            y=corr_with_first.values,
+            labels={'x': 'Metric', 'y': f'Correlation with {first_metric}'},
+            title=f'Correlation of Metrics with {first_metric}'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    elif corr_graph_type == "Line":
+        # Show all correlations as lines
+        fig = go.Figure()
+        for metric in metric_options:
+            fig.add_trace(go.Scatter(
+                x=correlation_matrix.columns,
+                y=correlation_matrix[metric],
+                mode='lines+markers',
+                name=metric
+            ))
+        fig.update_layout(
+            title='Correlation Lines Between Infrastructure Metrics',
+            xaxis_title='Metric',
+            yaxis_title='Correlation',
+            legend_title='Metric'
+        )
+        st.plotly_chart(fig, use_container_width=True)
     
     # Error rate analysis
     st.subheader("Error Rate Analysis")
@@ -358,38 +436,51 @@ with tab3:
     
     # Resource allocation analysis
     st.subheader("Resource Allocation Analysis")
-    
+
+    # Graph type selector for resource allocation
+    resource_graph_type = st.radio(
+        "Select Graph Type for Resource Allocation",
+        options=["Horizontal Bar", "Pie"],
+        horizontal=True,
+        key="resource_allocation_graph_type"
+    )
+
     # Calculate average resource usage by component
     avg_resources = infra_df_filtered.groupby('component')[['cpu_usage_percent', 'memory_usage_percent']].mean().reset_index()
-    
-    # Create a horizontal bar chart for resource allocation
-    fig = go.Figure()
-    
-    fig.add_trace(go.Bar(
-        y=avg_resources['component'],
-        x=avg_resources['cpu_usage_percent'],
-        name='CPU Usage (%)',
-        orientation='h',
-        marker=dict(color='rgba(58, 71, 80, 0.6)')
-    ))
-    
-    fig.add_trace(go.Bar(
-        y=avg_resources['component'],
-        x=avg_resources['memory_usage_percent'],
-        name='Memory Usage (%)',
-        orientation='h',
-        marker=dict(color='rgba(246, 78, 139, 0.6)')
-    ))
-    
-    fig.update_layout(
-        barmode='group',
-        title='Average Resource Usage by Component',
-        xaxis_title='Usage Percentage',
-        yaxis_title='Component',
-        legend_title='Resource Type'
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
+
+    if resource_graph_type == "Horizontal Bar":
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            y=avg_resources['component'],
+            x=avg_resources['cpu_usage_percent'],
+            name='CPU Usage (%)',
+            orientation='h',
+            marker=dict(color='rgba(58, 71, 80, 0.6)')
+        ))
+        fig.add_trace(go.Bar(
+            y=avg_resources['component'],
+            x=avg_resources['memory_usage_percent'],
+            name='Memory Usage (%)',
+            orientation='h',
+            marker=dict(color='rgba(246, 78, 139, 0.6)')
+        ))
+        fig.update_layout(
+            barmode='group',
+            title='Average Resource Usage by Component',
+            xaxis_title='Usage Percentage',
+            yaxis_title='Component',
+            legend_title='Resource Type'
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    elif resource_graph_type == "Pie":
+        # Show CPU and Memory as two pie charts
+        pie_cols = st.columns(2)
+        with pie_cols[0]:
+            fig_cpu = px.pie(avg_resources, values='cpu_usage_percent', names='component', title='CPU Usage Distribution')
+            st.plotly_chart(fig_cpu, use_container_width=True)
+        with pie_cols[1]:
+            fig_mem = px.pie(avg_resources, values='memory_usage_percent', names='component', title='Memory Usage Distribution')
+            st.plotly_chart(fig_mem, use_container_width=True)
     
     # Calculate bottlenecks
     st.subheader("Potential Bottlenecks")
@@ -464,7 +555,7 @@ with tab4:
         
         st.subheader("Model Efficiency Rankings")
         
-        # Convert to a format suitable for st.dataframe with colored bars
+        # test Convert to a format suitable for st.dataframe with colored bars
         model_efficiency_df = pd.DataFrame({
             "Model": model_recommendations['model'],
             "Efficiency Score": model_recommendations['efficiency_score'],
@@ -473,6 +564,9 @@ with tab4:
             "Accuracy": model_recommendations['accuracy'],
             "Cost ($/1K tokens)": model_recommendations['cost_per_1k_tokens']
         })
+        
+        # Ensure Efficiency Score is float, between 0 and 1, and has no NaN
+        model_efficiency_df["Efficiency Score"] = model_efficiency_df["Efficiency Score"].fillna(0).astype(float).clip(0, 1)
         
         st.dataframe(
             model_efficiency_df,
