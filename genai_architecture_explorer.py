@@ -759,10 +759,27 @@ with tab5:
         df['daily_token_cost'] = (df['daily_total_tokens'] / 1000) * df['cost_per_1k_tokens']
 
         st.subheader("Token Volume Over Time")
-        fig_total_tokens = px.line(df, x='date', y='daily_total_tokens', color='model', title="Daily Total Tokens")
+        token_chart_type = st.radio(
+            "Select Chart Type for Daily Total Tokens",
+            options=["Line", "Bar", "Area"],
+            horizontal=True,
+            key="token_total_chart_type_tab5_1"
+        )
+        if token_chart_type == "Line":
+            fig_total_tokens = px.line(df, x='date', y='daily_total_tokens', color='model', title="Daily Total Tokens")
+        elif token_chart_type == "Bar":
+            fig_total_tokens = px.bar(df, x='date', y='daily_total_tokens', color='model', barmode='group', title="Daily Total Tokens")
+        elif token_chart_type == "Area":
+            fig_total_tokens = px.area(df, x='date', y='daily_total_tokens', color='model', title="Daily Total Tokens")
         st.plotly_chart(fig_total_tokens, use_container_width=True)
 
         st.subheader("Tokens per Minute Analysis")
+        token_rate_chart_type = st.radio(
+            "Select Chart Type for Tokens per Minute",
+            options=["Line", "Bar", "Area"],
+            horizontal=True,
+            key="token_rate_chart_type_tab5_2"
+        )
         token_rate_df = df.melt(
             id_vars=['date', 'model'], 
             value_vars=['avg_tokens_per_minute', 'max_tokens_per_minute'], 
@@ -770,20 +787,36 @@ with tab5:
             value_name='Tokens per Minute'
         )
         token_rate_df['Metric'] = token_rate_df['Metric'].str.replace('_', ' ').str.title()
-        fig_token_rate = px.line(
-            token_rate_df, 
-            x='date', 
-            y='Tokens per Minute', 
-            color='model', 
-            line_dash='Metric', 
-            title="Tokens per Minute (Average vs Max)"
-        )
-
-        # Get model limits and colors to add threshold lines
-        # We get the colors from the figure itself to ensure they match
+        if token_rate_chart_type == "Line":
+            fig_token_rate = px.line(
+                token_rate_df, 
+                x='date', 
+                y='Tokens per Minute', 
+                color='model', 
+                line_dash='Metric', 
+                title="Tokens per Minute (Average vs Max)"
+            )
+        elif token_rate_chart_type == "Bar":
+            fig_token_rate = px.bar(
+                token_rate_df, 
+                x='date', 
+                y='Tokens per Minute', 
+                color='model', 
+                barmode='group', 
+                title="Tokens per Minute (Average vs Max)"
+            )
+        elif token_rate_chart_type == "Area":
+            fig_token_rate = px.area(
+                token_rate_df, 
+                x='date', 
+                y='Tokens per Minute', 
+                color='model', 
+                line_group='Metric', 
+                title="Tokens per Minute (Average vs Max)"
+            )
+        # Add threshold lines
         model_limits = df.groupby('model')['token_limit'].first()
         model_colors = {trace.name: trace.line.color for trace in fig_token_rate.data}
-
         for model_name, limit in model_limits.items():
             if model_name in model_colors:
                 fig_token_rate.add_hline(
@@ -793,46 +826,65 @@ with tab5:
                     annotation_position="bottom right",
                     line_color=model_colors[model_name]
                 )
-
         st.plotly_chart(fig_token_rate, use_container_width=True)
 
         st.subheader("Token Limit Exceedances")
-        fig_exceedances = px.line(df, x='date', y='token_limit_exceeded_count', color='model', title="Daily Token Limit Exceedance Count")
+        exceed_chart_type = st.radio(
+            "Select Chart Type for Token Limit Exceedances",
+            options=["Line", "Bar", "Area"],
+            horizontal=True,
+            key="token_exceed_chart_type_tab5_3"
+        )
+        if exceed_chart_type == "Line":
+            fig_exceedances = px.line(df, x='date', y='token_limit_exceeded_count', color='model', title="Daily Token Limit Exceedance Count")
+        elif exceed_chart_type == "Bar":
+            fig_exceedances = px.bar(df, x='date', y='token_limit_exceeded_count', color='model', barmode='group', title="Daily Token Limit Exceedance Count")
+        elif exceed_chart_type == "Area":
+            fig_exceedances = px.area(df, x='date', y='token_limit_exceeded_count', color='model', title="Daily Token Limit Exceedance Count")
         st.plotly_chart(fig_exceedances, use_container_width=True)
 
         st.subheader("Token Cost Analysis")
-        
-        # Daily total cost
-        fig_daily_cost = px.line(df, x='date', y='daily_token_cost', color='model', title="Daily Total Token Cost ($)")
+        token_cost_chart_type = st.radio(
+            "Select Chart Type for Daily Token Cost",
+            options=["Line", "Bar", "Area"],
+            horizontal=True,
+            key="token_cost_chart_type_tab5_4"
+        )
+        if token_cost_chart_type == "Line":
+            fig_daily_cost = px.line(df, x='date', y='daily_token_cost', color='model', title="Daily Total Token Cost ($)")
+        elif token_cost_chart_type == "Bar":
+            fig_daily_cost = px.bar(df, x='date', y='daily_token_cost', color='model', barmode='group', title="Daily Total Token Cost ($)")
+        elif token_cost_chart_type == "Area":
+            fig_daily_cost = px.area(df, x='date', y='daily_token_cost', color='model', title="Daily Total Token Cost ($)")
         fig_daily_cost.update_layout(yaxis_title="Cost ($)")
         st.plotly_chart(fig_daily_cost, use_container_width=True)
 
-        # Cumulative cost per model
-        df['cumulative_cost'] = df.sort_values('date').groupby('model')['daily_token_cost'].cumsum()
-        fig_cumulative_cost = px.line(df, x='date', y='cumulative_cost', color='model', title="Cumulative Token Cost per Model ($)")
+        st.subheader("Cumulative Token Cost Analysis")
+        cumulative_cost_chart_type = st.radio(
+            "Select Chart Type for Cumulative Token Cost",
+            options=["Line", "Bar", "Area"],
+            horizontal=True,
+            key="token_cumulative_chart_type_tab5_5"
+        )
+        if cumulative_cost_chart_type == "Line":
+            df['cumulative_cost'] = df.sort_values('date').groupby('model')['daily_token_cost'].cumsum()
+            fig_cumulative_cost = px.line(df, x='date', y='cumulative_cost', color='model', title="Cumulative Token Cost per Model ($)")
+        elif cumulative_cost_chart_type == "Bar":
+            df['cumulative_cost'] = df.sort_values('date').groupby('model')['daily_token_cost'].cumsum()
+            fig_cumulative_cost = px.bar(df, x='date', y='cumulative_cost', color='model', barmode='group', title="Cumulative Token Cost per Model ($)")
+        elif cumulative_cost_chart_type == "Area":
+            df['cumulative_cost'] = df.sort_values('date').groupby('model')['daily_token_cost'].cumsum()
+            fig_cumulative_cost = px.area(df, x='date', y='cumulative_cost', color='model', title="Cumulative Token Cost per Model ($)")
         fig_cumulative_cost.update_layout(yaxis_title="Cumulative Cost ($)")
         st.plotly_chart(fig_cumulative_cost, use_container_width=True)
 
-        # Calculate potential savings
-        latest_metrics = df[df['date'] == df['date'].max()]
-        if not latest_metrics.empty:
-            current_models = latest_metrics['model'].unique()
-            if len(current_models) > 1:
-                avg_cost = latest_metrics['cost_per_1k_tokens'].mean()
-                min_cost = latest_metrics['cost_per_1k_tokens'].min()
-                if avg_cost > 0:
-                    potential_savings_pct = ((avg_cost - min_cost) / avg_cost) * 100
-                    
-                    st.metric(
-                        label="Potential Cost Savings by Optimizing Model Selection",
-                        value=f"{potential_savings_pct:.1f}%",
-                        delta=f"-${avg_cost - min_cost:.4f} per 1K tokens",
-                        delta_color="inverse"
-                    )
-
         st.subheader("Token Limit Utilization")
-        st.markdown("This section identifies models where the peak token usage is consistently far below the configured token limit, suggesting an opportunity to right-size the limit to potentially reduce costs or re-allocate resources.")
-
+        utilization_chart_type = st.radio(
+            "Select Chart Type for Token Limit Utilization",
+            options=["Bar", "Line", "Area"],
+            horizontal=True,
+            key="token_utilization_chart_type_tab5_6"
+        )
         if 'token_limit' in df.columns:
             utilization_df = df.groupby('model').agg(
                 avg_max_tokens=('max_tokens_per_minute', 'mean'),
@@ -850,15 +902,36 @@ with tab5:
             else:
                 st.success("All models show healthy token limit utilization based on peak usage.")
 
-            fig_utilization = px.bar(
-                utilization_df.sort_values('utilization_pct', ascending=False),
-                x='model',
-                y='utilization_pct',
-                title='Average Peak Token Usage vs. Token Limit',
-                labels={'utilization_pct': 'Utilization of Token Limit (%)', 'model': 'Model'},
-                color='utilization_pct',
-                color_continuous_scale=px.colors.sequential.Viridis
-            )
+            if utilization_chart_type == "Bar":
+                fig_utilization = px.bar(
+                    utilization_df.sort_values('utilization_pct', ascending=False),
+                    x='model',
+                    y='utilization_pct',
+                    title='Average Peak Token Usage vs. Token Limit',
+                    labels={'utilization_pct': 'Utilization of Token Limit (%)', 'model': 'Model'},
+                    color='utilization_pct',
+                    color_continuous_scale=px.colors.sequential.Viridis
+                )
+            elif utilization_chart_type == "Line":
+                fig_utilization = px.line(
+                    utilization_df.sort_values('utilization_pct', ascending=False),
+                    x='model',
+                    y='utilization_pct',
+                    title='Average Peak Token Usage vs. Token Limit',
+                    labels={'utilization_pct': 'Utilization of Token Limit (%)', 'model': 'Model'},
+                    color='utilization_pct',
+                    color_continuous_scale=px.colors.sequential.Viridis
+                )
+            elif utilization_chart_type == "Area":
+                fig_utilization = px.area(
+                    utilization_df.sort_values('utilization_pct', ascending=False),
+                    x='model',
+                    y='utilization_pct',
+                    title='Average Peak Token Usage vs. Token Limit',
+                    labels={'utilization_pct': 'Utilization of Token Limit (%)', 'model': 'Model'},
+                    color='utilization_pct',
+                    color_continuous_scale=px.colors.sequential.Viridis
+                )
             fig_utilization.add_hline(y=25, line_dash="dash", annotation_text="Low Utilization Threshold (25%)", annotation_position="bottom right")
             st.plotly_chart(fig_utilization, use_container_width=True)
     else:
