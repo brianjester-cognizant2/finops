@@ -15,10 +15,10 @@ st.set_page_config(
 )
 
 # Title and introduction
-st.title("GenAI Architecture Explorer")
+st.title("🧠 GenAI FinOps Multi-Cloud Explorer")
 st.markdown("""
-This application helps you explore and analyze your GenAI architecture, 
-identify optimization opportunities, and visualize key performance metrics.
+**Enterprise GenAI Cost & Performance Analytics Across Multiple Cloud Platforms**  
+Analyze your GenAI architecture performance, costs, and optimization opportunities across AWS, GCP, Azure, Snowflake, and Databricks.
 """)
 
 # Sidebar configuration
@@ -28,6 +28,20 @@ st.sidebar.header("Settings")
 def generate_sample_data():
     np.random.seed(42)
     dates = pd.date_range(start='2023-01-01', end= pd.Timestamp.today().strftime('%Y-%m-%d'), freq='D')
+    
+    # Define enterprise-level hierarchy
+    cloud_platforms = ['AWS', 'GCP', 'Azure', 'Snowflake', 'Databricks']
+    departments = ['Engineering', 'Data Science', 'Marketing', 'Finance', 'Operations']
+    environments = ['dev', 'staging', 'prod']
+    release_versions = ['v1.0', 'v1.1', 'v1.2', 'v2.0', 'v2.1']
+    
+    projects_per_cloud = {
+        'AWS': ['GenAI-Chat', 'ML-Pipeline', 'Data-Lake'],
+        'GCP': ['Analytics-Engine', 'Vision-API', 'Speech-Processing'],
+        'Azure': ['Cognitive-Services', 'Bot-Framework', 'Document-AI'],
+        'Snowflake': ['Data-Warehouse', 'BI-Analytics', 'ML-Features'],
+        'Databricks': ['MLOps-Platform', 'Real-time-Analytics', 'Feature-Store']
+    }
     
     # Model performance data
     models = {
@@ -46,35 +60,56 @@ def generate_sample_data():
         base_cost = np.random.uniform(0.01, 0.1)
         
         for date in dates:
-            # Add some trend and random noise
-            trend_factor = 1 - (0.0001 * (date - dates[0]).days)  # Gradual improvement over time
-            random_factor = np.random.normal(1, 0.05)  # Daily variation
-            
-            latency = base_latency * trend_factor * random_factor
-            throughput = base_throughput / trend_factor * random_factor
-            accuracy = min(0.99, base_accuracy / trend_factor * random_factor)
-            cost = base_cost * trend_factor * random_factor
-            
-            # Token usage simulation
-            avg_tokens_per_minute = ( throughput / ( 60 * 24 ) )* properties['avg_tokens_per_request'] * np.random.normal(1, 0.15)
-            max_tokens_per_minute = avg_tokens_per_minute * np.random.uniform(1.5, 7.5)
-            minute_samples = np.random.normal(max_tokens_per_minute, max_tokens_per_minute * 0.4)
-            exceedances = np.sum(minute_samples > properties['token_limit'])
-            
-            model_data.append({
-                'date': date,
-                'model': model,
-                'latency_ms': latency,
-                'throughput_qps': throughput,
-                'accuracy': accuracy,
-                'cost_per_1k_tokens': cost,
-                'memory_usage_gb': np.random.uniform(4, 16),
-                'gpu_utilization': np.random.uniform(0.4, 0.95),
-                'avg_tokens_per_minute': avg_tokens_per_minute,
-                'max_tokens_per_minute': max_tokens_per_minute,
-                'token_limit_exceeded_count': exceedances,
-                'token_limit': properties['token_limit']
-            })
+            # Generate combinations for each model
+            for cloud in cloud_platforms:
+                for project in projects_per_cloud[cloud]:
+                    for env in environments:
+                        for dept in departments:
+                            # Skip some combinations to make data more realistic
+                            if np.random.random() > 0.3:  # 70% of combinations exist
+                                continue
+                                
+                            release_version = np.random.choice(release_versions)
+                            
+                            # Add some trend and random noise
+                            trend_factor = 1 - (0.0001 * (date - dates[0]).days)  # Gradual improvement over time
+                            random_factor = np.random.normal(1, 0.05)  # Daily variation
+                            
+                            # Cloud-specific cost factors
+                            cloud_cost_factor = {'AWS': 1.0, 'GCP': 0.9, 'Azure': 1.1, 'Snowflake': 1.3, 'Databricks': 1.2}[cloud]
+                            # Environment-specific factors
+                            env_factor = {'dev': 0.3, 'staging': 0.6, 'prod': 1.0}[env]
+                            
+                            latency = base_latency * trend_factor * random_factor * env_factor
+                            throughput = base_throughput / trend_factor * random_factor * env_factor
+                            accuracy = min(0.99, base_accuracy / trend_factor * random_factor)
+                            cost = base_cost * trend_factor * random_factor * cloud_cost_factor * env_factor
+                            
+                            # Token usage simulation
+                            avg_tokens_per_minute = (throughput / (60 * 24)) * properties['avg_tokens_per_request'] * np.random.normal(1, 0.15)
+                            max_tokens_per_minute = avg_tokens_per_minute * np.random.uniform(1.5, 7.5)
+                            minute_samples = np.random.normal(max_tokens_per_minute, max_tokens_per_minute * 0.4)
+                            exceedances = np.sum(minute_samples > properties['token_limit'])
+                            
+                            model_data.append({
+                                'date': date,
+                                'model': model,
+                                'cloud_platform': cloud,
+                                'project': project,
+                                'department': dept,
+                                'environment': env,
+                                'release_version': release_version,
+                                'latency_ms': latency,
+                                'throughput_qps': throughput,
+                                'accuracy': accuracy,
+                                'cost_per_1k_tokens': cost,
+                                'memory_usage_gb': np.random.uniform(4, 16) * env_factor,
+                                'gpu_utilization': np.random.uniform(0.4, 0.95) * env_factor,
+                                'avg_tokens_per_minute': avg_tokens_per_minute,
+                                'max_tokens_per_minute': max_tokens_per_minute,
+                                'token_limit_exceeded_count': exceedances,
+                                'token_limit': properties['token_limit']
+                            })
     
     # Infrastructure data
     infra_data = []
@@ -86,24 +121,42 @@ def generate_sample_data():
         base_requests = np.random.uniform(100, 1000)
         
         for date in dates:
-            # Weekly pattern + trend
-            day_of_week = date.dayofweek
-            weekly_factor = 1 + 0.2 * (day_of_week < 5)  # Higher on weekdays
-            trend_factor = 1 + (0.0005 * (date - dates[0]).days)  # Gradual increase in load
-            
-            cpu_usage = base_cpu * weekly_factor * trend_factor * np.random.normal(1, 0.1)
-            memory_usage = base_memory * weekly_factor * trend_factor * np.random.normal(1, 0.05)
-            requests = base_requests * weekly_factor * trend_factor * np.random.normal(1, 0.2)
-            
-            infra_data.append({
-                'date': date,
-                'component': component,
-                'cpu_usage_percent': min(100, cpu_usage),
-                'memory_usage_percent': min(100, memory_usage),
-                'requests_per_minute': requests,
-                'errors_per_minute': requests * np.random.uniform(0.001, 0.05),
-                'avg_response_time_ms': np.random.uniform(50, 500)
-            })
+            for cloud in cloud_platforms:
+                for project in projects_per_cloud[cloud]:
+                    for env in environments:
+                        for dept in departments:
+                            # Skip some combinations to make data more realistic
+                            if np.random.random() > 0.4:  # 60% of combinations exist
+                                continue
+                                
+                            release_version = np.random.choice(release_versions)
+                            
+                            # Weekly pattern + trend
+                            day_of_week = date.dayofweek
+                            weekly_factor = 1 + 0.2 * (day_of_week < 5)  # Higher on weekdays
+                            trend_factor = 1 + (0.0005 * (date - dates[0]).days)  # Gradual increase in load
+                            
+                            # Environment-specific factors
+                            env_factor = {'dev': 0.3, 'staging': 0.6, 'prod': 1.0}[env]
+                            
+                            cpu_usage = base_cpu * weekly_factor * trend_factor * np.random.normal(1, 0.1) * env_factor
+                            memory_usage = base_memory * weekly_factor * trend_factor * np.random.normal(1, 0.05) * env_factor
+                            requests = base_requests * weekly_factor * trend_factor * np.random.normal(1, 0.2) * env_factor
+                            
+                            infra_data.append({
+                                'date': date,
+                                'component': component,
+                                'cloud_platform': cloud,
+                                'project': project,
+                                'department': dept,
+                                'environment': env,
+                                'release_version': release_version,
+                                'cpu_usage_percent': min(100, cpu_usage),
+                                'memory_usage_percent': min(100, memory_usage),
+                                'requests_per_minute': requests,
+                                'errors_per_minute': requests * np.random.uniform(0.001, 0.05),
+                                'avg_response_time_ms': np.random.uniform(50, 500)
+                            })
     
     # Create DataFrames
     model_df = pd.DataFrame(model_data)
@@ -122,47 +175,174 @@ infra_df = st.session_state.infra_data
 # Calculate error rate on the main dataframe to ensure it's always available
 infra_df['error_rate'] = infra_df['errors_per_minute'] / infra_df['requests_per_minute']
 
+# Add sidebar drill-down filters
+st.sidebar.header("🔍 Drill-Down Filters")
+
+# Cloud Platform filter
+selected_clouds = st.sidebar.multiselect(
+    "☁️ Cloud Platforms",
+    options=sorted(model_df['cloud_platform'].unique()),
+    default=sorted(model_df['cloud_platform'].unique()),
+    help="Select one or more cloud platforms to analyze"
+)
+
+# Department filter
+selected_departments = st.sidebar.multiselect(
+    "🏢 Departments",
+    options=sorted(model_df['department'].unique()),
+    default=sorted(model_df['department'].unique()),
+    help="Filter by organizational departments"
+)
+
+# Project filter (dynamic based on selected clouds)
+available_projects = model_df[model_df['cloud_platform'].isin(selected_clouds)]['project'].unique()
+selected_projects = st.sidebar.multiselect(
+    "📁 Projects",
+    options=sorted(available_projects),
+    default=sorted(available_projects),
+    help="Select specific projects within chosen cloud platforms"
+)
+
+# Environment filter
+selected_environments = st.sidebar.multiselect(
+    "🌍 Environments",
+    options=sorted(model_df['environment'].unique()),
+    default=sorted(model_df['environment'].unique()),
+    help="Filter by deployment environment (dev, staging, prod)"
+)
+
+# Release Version filter
+selected_releases = st.sidebar.multiselect(
+    "🚀 Release Versions",
+    options=sorted(model_df['release_version'].unique()),
+    default=sorted(model_df['release_version'].unique()),
+    help="Filter by software release versions"
+)
+
+st.sidebar.markdown("---")
+
 # Date filter for analysis
 date_range = st.sidebar.date_input(
-    "Select Date Range",
+    "📅 Select Date Range",
     value=(model_df['date'].min().date(), model_df['date'].max().date()),
     min_value=model_df['date'].min().date(),
     max_value=model_df['date'].max().date()
 )
 
-# Filter data based on selected date range
-if len(date_range) == 2:
-    start_date, end_date = date_range
-    model_df_filtered = model_df[(model_df['date'].dt.date >= start_date) & (model_df['date'].dt.date <= end_date)]
-    infra_df_filtered = infra_df[(infra_df['date'].dt.date >= start_date) & (infra_df['date'].dt.date <= end_date)]
-else:
-    model_df_filtered = model_df
-    infra_df_filtered = infra_df
+# Apply all filters
+def apply_filters(df):
+    filtered_df = df.copy()
+    
+    # Date filter
+    if len(date_range) == 2:
+        start_date, end_date = date_range
+        filtered_df = filtered_df[(filtered_df['date'].dt.date >= start_date) & (filtered_df['date'].dt.date <= end_date)]
+    
+    # Drill-down filters
+    filtered_df = filtered_df[filtered_df['cloud_platform'].isin(selected_clouds)]
+    filtered_df = filtered_df[filtered_df['department'].isin(selected_departments)]
+    filtered_df = filtered_df[filtered_df['project'].isin(selected_projects)]
+    filtered_df = filtered_df[filtered_df['environment'].isin(selected_environments)]
+    filtered_df = filtered_df[filtered_df['release_version'].isin(selected_releases)]
+    
+    return filtered_df
 
-# Model selection
+# Apply filters to both dataframes
+model_df_filtered = apply_filters(model_df)
+infra_df_filtered = apply_filters(infra_df)
+
+# Display current filter summary
+st.sidebar.markdown("### 📊 Current Selection")
+st.sidebar.info(f"""
+**Clouds:** {len(selected_clouds)} selected  
+**Departments:** {len(selected_departments)} selected  
+**Projects:** {len(selected_projects)} selected  
+**Environments:** {len(selected_environments)} selected  
+**Releases:** {len(selected_releases)} selected  
+
+**Data Points:** {len(model_df_filtered):,} model records, {len(infra_df_filtered):,} infra records
+""")
+
+st.sidebar.markdown("---")
+st.sidebar.header("🎯 Analysis Focus")
+
+# Model selection (based on filtered data)
+available_models = model_df_filtered['model'].unique() if len(model_df_filtered) > 0 else []
 selected_models = st.sidebar.multiselect(
-    "Select Models to Display",
-    options=model_df['model'].unique(),
-    default=model_df['model'].unique()[:3]  # Default select first 3 models
+    "🤖 Select Models to Display",
+    options=sorted(available_models),
+    default=sorted(available_models)[:3] if len(available_models) > 0 else [],  # Default select first 3 models
+    help="Choose which AI models to include in analysis"
 )
 
-# Infrastructure component selection
+# Infrastructure component selection (based on filtered data)
+available_components = infra_df_filtered['component'].unique() if len(infra_df_filtered) > 0 else []
 selected_components = st.sidebar.multiselect(
-    "Select Infrastructure Components",
-    options=infra_df['component'].unique(),
-    default=infra_df['component'].unique()
+    "🖥️ Select Infrastructure Components",
+    options=sorted(available_components),
+    default=sorted(available_components),
+    help="Choose which infrastructure components to analyze"
 )
 
 # Metric selection for models
 model_metrics = st.sidebar.multiselect(
-    "Select Model Metrics to Analyze",
+    "📈 Select Model Metrics to Analyze",
     options=['latency_ms', 'throughput_qps', 'accuracy', 'cost_per_1k_tokens', 'memory_usage_gb', 'gpu_utilization'],
-    default=['latency_ms', 'accuracy', 'cost_per_1k_tokens']
+    default=['latency_ms', 'accuracy', 'cost_per_1k_tokens'],
+    help="Choose which model performance metrics to display"
 )
 
-# Filter data based on selections
-model_df_filtered = model_df_filtered[model_df_filtered['model'].isin(selected_models)]
-infra_df_filtered = infra_df_filtered[infra_df_filtered['component'].isin(selected_components)]
+# Final filter on selected models and components
+model_df_filtered = model_df_filtered[model_df_filtered['model'].isin(selected_models)] if selected_models else model_df_filtered.iloc[0:0]
+infra_df_filtered = infra_df_filtered[infra_df_filtered['component'].isin(selected_components)] if selected_components else infra_df_filtered.iloc[0:0]
+
+# Show current drill-down context and summary
+if len(model_df_filtered) > 0:
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("🏢 Departments", len(selected_departments), help="Number of departments in current selection")
+    with col2:
+        st.metric("☁️ Cloud Platforms", len(selected_clouds), help="Number of cloud platforms selected")
+    with col3:
+        st.metric("📁 Projects", len(selected_projects), help="Number of projects in current scope")
+    with col4:
+        st.metric("🌍 Environments", len(selected_environments), help="Number of environments (dev/staging/prod)")
+    
+    # Show breakdown by cloud and environment
+    if len(model_df_filtered) > 0:
+        st.markdown("### 📊 Current Selection Summary")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Cost by cloud platform
+            cost_by_cloud = model_df_filtered.groupby('cloud_platform')['cost_per_1k_tokens'].mean().sort_values(ascending=False)
+            fig_cloud_cost = px.bar(
+                x=cost_by_cloud.index, 
+                y=cost_by_cloud.values,
+                title="Average Cost per 1K Tokens by Cloud Platform",
+                labels={'x': 'Cloud Platform', 'y': 'Avg Cost ($)'}
+            )
+            st.plotly_chart(fig_cloud_cost, use_container_width=True)
+        
+        with col2:
+            # Projects by environment
+            env_dist = model_df_filtered.groupby(['environment', 'cloud_platform']).size().reset_index(name='count')
+            fig_env_dist = px.bar(
+                env_dist, 
+                x='environment', 
+                y='count', 
+                color='cloud_platform',
+                title="Data Points by Environment & Cloud",
+                labels={'count': 'Number of Records', 'environment': 'Environment'}
+            )
+            st.plotly_chart(fig_env_dist, use_container_width=True)
+    
+    st.markdown("---")
+else:
+    st.warning("⚠️ No data matches your current filter selection. Please adjust your filters to see results.")
+    st.stop()
 
 # Main content
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Model Performance", "Infrastructure Metrics", "Architecture Overview", "Optimization Recommendations", "Token Usage Analysis", "Alerts"])
@@ -554,8 +734,8 @@ with tab4:
             latest_metrics['memory_norm'] * 0.1
         )
         
-        # Sort by efficiency score
-        model_recommendations = latest_metrics[['model', 'efficiency_score', 'latency_ms', 'throughput_qps', 'accuracy', 'cost_per_1k_tokens']].sort_values('efficiency_score', ascending=False)
+        # Sort by efficiency score and include contextual columns
+        model_recommendations = latest_metrics[['model', 'cloud_platform', 'department', 'project', 'environment', 'release_version', 'efficiency_score', 'latency_ms', 'throughput_qps', 'accuracy', 'cost_per_1k_tokens']].sort_values('efficiency_score', ascending=False)
 
     # Generate recommendations based on data analysis
     recommendations = []
@@ -709,9 +889,14 @@ with tab4:
     if not model_recommendations.empty:
         st.subheader("Model Efficiency Rankings")
         
-        # test Convert to a format suitable for st.dataframe with colored bars
+        # Convert to a format suitable for st.dataframe with colored bars
         model_efficiency_df = pd.DataFrame({
             "Model": model_recommendations['model'],
+            "Cloud Platform": model_recommendations['cloud_platform'],
+            "Department": model_recommendations['department'],
+            "Project": model_recommendations['project'],
+            "Environment": model_recommendations['environment'],
+            "Release Version": model_recommendations['release_version'],
             "Efficiency Score": model_recommendations['efficiency_score'],
             "Latency (ms)": model_recommendations['latency_ms'],
             "Throughput (QPS)": model_recommendations['throughput_qps'],
@@ -726,6 +911,11 @@ with tab4:
             model_efficiency_df,
             column_config={
                 "Model": "Model",
+                "Cloud Platform": "Cloud Platform",
+                "Department": "Department", 
+                "Project": "Project",
+                "Environment": "Environment",
+                "Release Version": "Release Version",
                 "Efficiency Score": st.column_config.ProgressColumn(
                     "Efficiency Score",
                     format="%.2f",
@@ -1017,32 +1207,44 @@ st.sidebar.header("Export Data")
 def convert_df_to_csv(df):
     return df.to_csv().encode('utf-8')
 
-csv_model = convert_df_to_csv(model_df)
-csv_infra = convert_df_to_csv(infra_df)
+csv_model = convert_df_to_csv(model_df_filtered)
+csv_infra = convert_df_to_csv(infra_df_filtered)
 
 st.sidebar.download_button(
-    label="Download Model Data as CSV",
+    label="Download Filtered Model Data as CSV",
     data=csv_model,
-    file_name='genai_model_metrics.csv',
+    file_name='genai_model_metrics_filtered.csv',
     mime='text/csv',
 )
 
 st.sidebar.download_button(
-    label="Download Infrastructure Data as CSV",
+    label="Download Filtered Infrastructure Data as CSV",
     data=csv_infra,
-    file_name='genai_infrastructure_metrics.csv',
+    file_name='genai_infrastructure_metrics_filtered.csv',
     mime='text/csv',
 )
 
 # Footer with usage instructions
 st.sidebar.markdown("---")
 st.sidebar.markdown("""
-### How to Use
-1. Select date range for analysis
-2. Choose models and components to compare
-3. Navigate through tabs to explore different aspects
-4. Export data for further analysis
+### 📋 How to Use This Dashboard
+1. **🔍 Filter Data**: Use drill-down filters to focus on specific clouds, departments, projects, environments, or releases
+2. **📅 Set Date Range**: Choose the time period for analysis
+3. **🤖 Select Models & Components**: Pick which models and infrastructure components to analyze
+4. **📊 Explore Tabs**: Navigate through different analysis perspectives
+5. **💾 Export Data**: Download filtered data for further analysis
+
+### 🎯 Drill-Down Strategy
+- Start with **Cloud Platforms** to compare costs across providers
+- Filter by **Department** to analyze team-specific usage
+- Select **Projects** to dive into specific initiatives  
+- Use **Environment** to compare dev vs prod costs
+- Filter by **Release Version** to track performance changes
 """)
 
 st.sidebar.markdown("---")
-st.sidebar.info("This app uses sample data for demonstration purposes. In a real deployment, connect to your actual monitoring systems.")
+st.sidebar.info("""
+🏢 **Enterprise Demo**: This dashboard uses simulated data representing a multi-cloud GenAI deployment across AWS, GCP, Azure, Snowflake, and Databricks. 
+
+In production, connect to your actual monitoring systems and cost management APIs.
+""")
