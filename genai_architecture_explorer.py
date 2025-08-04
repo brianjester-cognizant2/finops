@@ -571,32 +571,18 @@ with tab_summary:
             )
             st.plotly_chart(fig_env_dist, use_container_width=True)
         
-        # Additional summary charts
+        # Additional summary chart
         st.markdown("### 📈 Key Performance Insights")
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Average accuracy by department
-            dept_accuracy = model_df_filtered.groupby('department')['accuracy'].mean().sort_values(ascending=False)
-            fig_dept_acc = px.bar(
-                x=dept_accuracy.index,
-                y=dept_accuracy.values,
-                title="Average Model Accuracy by Department",
-                labels={'x': 'Department', 'y': 'Accuracy'}
-            )
-            fig_dept_acc.update_layout(yaxis_tickformat='.1%')
-            st.plotly_chart(fig_dept_acc, use_container_width=True)
-        
-        with col2:
-            # Average cost by release version
-            release_cost = model_df_filtered.groupby('release_version')['cost_per_1k_tokens'].mean().sort_values(ascending=True)
-            fig_release_cost = px.bar(
-                x=release_cost.index,
-                y=release_cost.values,
-                title="Average Cost per 1K Tokens by Release Version",
-                labels={'x': 'Release Version', 'y': 'Cost per 1K Tokens ($)'}
-            )
+        # Average cost by release version
+        release_cost = model_df_filtered.groupby('release_version')['cost_per_1k_tokens'].mean().sort_values(ascending=True)
+        fig_release_cost = px.bar(
+            x=release_cost.index,
+            y=release_cost.values,
+            title="Average Cost per 1K Tokens by Release Version",
+            labels={'x': 'Release Version', 'y': 'Cost per 1K Tokens ($)'}
+        )
+        st.plotly_chart(fig_release_cost, use_container_width=True)
 
 with tab1:
     st.header("Model Performance Analysis")
