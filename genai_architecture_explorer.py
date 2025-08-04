@@ -942,73 +942,262 @@ with tab6:
 
     # Define all available metrics for alerting
     all_metrics = (
-        model_df.columns.drop(['date', 'model']).tolist() +
+        model_df.columns.drop(['date', 'model', 'token_limit']).tolist() +
         infra_df.columns.drop(['date', 'component', 'error_rate']).tolist()
     )
     
-    # --- Alert Configuration UI ---
-    st.subheader("Set a New Alert")
-    
-    # Initialize session state for alerts if it doesn't exist
+    # Initialize session state
     if 'alerts' not in st.session_state:
         st.session_state.alerts = []
+    if 'edit_idx' not in st.session_state:
+        st.session_state.edit_idx = None
 
-    with st.form("alert_form", clear_on_submit=True):
-        col1, col2, col3, col4 = st.columns([3, 2, 3, 1])
+    # --- EDIT ALERT UI ---
+    if st.session_state.edit_idx is not None:
+        st.subheader(f"Edit Alert: {st.session_state.alerts[st.session_state.edit_idx].get('name', '')}")
+        alert_to_edit = st.session_state.alerts[st.session_state.edit_idx]
         
-        with col1:
-            st.selectbox("Select Metric", options=sorted(list(set(all_metrics))), key="metric_to_alert", placeholder="Select Metric", label_visibility="collapsed", index=None)
-        with col2:
-            st.number_input("Threshold Value", value=None, placeholder="Threshold Value", key="threshold", label_visibility="collapsed")
-        with col3:
-            st.text_input("Email for Notification", placeholder="Email for Notification", key="email_to_alert", label_visibility="collapsed")
-        with col4:
-            submitted = st.form_submit_button("Set Alert")
+        metric_options = sorted(list(set(all_metrics)))
+        condition_options = ["Above", "Below", "Between", "Increases by %", "Decreases by %"]
+        
+        with st.form("edit_alert_form"):
+            st.text_input("Alert Name", key="edit_name", value=alert_to_edit.get('name'))
+            st.selectbox("Select Metric", options=metric_options, key="edit_metric", index=metric_options.index(alert_to_edit['metric']))
+            st.selectbox("Condition", options=condition_options, key="edit_condition", index=condition_options.index(alert_to_edit['condition']))
 
-        if submitted:
-            if st.session_state.email_to_alert and st.session_state.metric_to_alert and st.session_state.threshold is not None:
-                st.session_state.alerts.append({
-                    "metric": st.session_state.metric_to_alert,
-                    "threshold": st.session_state.threshold,
-                    "email": st.session_state.email_to_alert
-                })
-                st.success(f"Alert set for '{st.session_state.metric_to_alert}' with threshold {st.session_state.threshold}.")
+            thresholds = alert_to_edit.get('thresholds', {})
+            comparison_period = alert_to_edit.get('comparison_period')
+
+            if st.session_state.edit_condition == "Between":
+                st.session_state.edit_lower_bound = st.number_input("Lower Bound", value=thresholds.get('lower_bound'))
+                st.session_state.edit_upper_bound = st.number_input("Upper Bound", value=thresholds.get('upper_bound'))
+            elif st.session_state.edit_condition in ["Increases by %", "Decreases by %"]:
+                st.session_state.edit_percentage = st.number_input("Percentage", value=thresholds.get('percentage'))
+                period_options = ["Previous Value", "7-Day Average", "30-Day Average"]
+                st.selectbox(
+                    "Compare Against", 
+                    options=period_options, 
+                    key="edit_comparison_period",
+                    index=period_options.index(comparison_period) if comparison_period in period_options else 0
+                )
             else:
-                st.error("Please provide a metric, threshold, and an email address.")
+                st.session_state.edit_value = st.number_input("Threshold Value", value=thresholds.get('value'))
 
-    # --- Display Active Alerts ---
-    st.subheader("Active Alerts")
-    if not st.session_state.alerts:
-        st.info("No alerts configured yet.")
+            st.text_input("Email for Notification", key="edit_email", value=alert_to_edit.get('email'))
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.form_submit_button("Update Alert"):
+                    # Update logic here based on new inputs
+                    updated_thresholds = {}
+                    if st.session_state.edit_condition == "Between":
+                        updated_thresholds = {'lower_bound': st.session_state.edit_lower_bound, 'upper_bound': st.session_state.edit_upper_bound}
+                    elif st.session_state.edit_condition in ["Increases by %", "Decreases by %"]:
+                        updated_thresholds = {'percentage': st.session_state.edit_percentage}
+                    else:
+                        updated_thresholds = {'value': st.session_state.edit_value}
+
+                    st.session_state.alerts[st.session_state.edit_idx] = {
+                        "name": st.session_state.edit_name,
+                        "metric": st.session_state.edit_metric,
+                        "condition": st.session_state.edit_condition,
+                        "thresholds": updated_thresholds,
+                        "email": st.session_state.edit_email,
+                        "comparison_period": st.session_state.get('edit_comparison_period') if st.session_state.edit_condition in ["Increases by %", "Decreases by %"] else None
+                    }
+                    st.session_state.edit_idx = None
+                    st.success("Alert updated successfully!")
+                    st.rerun()
+            with col2:
+                if st.form_submit_button("Cancel"):
+                    st.session_state.edit_idx = None
+                    st.rerun()
     else:
-        for i, alert in enumerate(st.session_state.alerts):
-            st.info(f"**Alert {i+1}:** Monitor **{alert['metric']}** to not exceed **{alert['threshold']}**. Notify: **{alert['email']}**")
+        # --- CREATE NEW ALERT UI ---
+        st.subheader("Set a New Alert")
+
+        # After an alert is set, show success and reset widgets
+        if st.session_state.get("alert_just_set"):
+            st.success(f"Alert set for '{st.session_state.last_alert_metric}'.")
+            st.session_state.alert_metric = None
+            st.session_state.alert_condition = None
+            st.session_state.alert_just_set = False
+            if "last_alert_metric" in st.session_state:
+                del st.session_state.last_alert_metric
+
+        metric_to_alert = st.selectbox(
+            "Select Metric",
+            options=sorted(list(set(all_metrics))),
+            key="alert_metric",
+            placeholder="Select a metric...",
+            index=None
+        )
+        
+        condition_type = st.selectbox(
+            "Condition", 
+            options=["Above", "Below", "Between", "Increases by %", "Decreases by %"], 
+            key="alert_condition",
+            placeholder="Select a condition...",
+            index=None
+        )
+
+        with st.form("create_alert_form", clear_on_submit=True):
+            alert_name = st.text_input("Alert Name", key="alert_name_val", placeholder="e.g., High CPU on Model Server")
+            
+            threshold_inputs = {}
+            comparison_period = None
+            current_condition = st.session_state.get('alert_condition')
+
+            if current_condition:
+                t_col1, t_col2 = st.columns(2)
+                with t_col1:
+                    if current_condition in ["Above", "Below"]:
+                        threshold_inputs['value'] = st.number_input("Threshold Value", step=1.0, key="threshold_val")
+                    elif "by %" in current_condition:
+                        threshold_inputs['percentage'] = st.number_input("Percentage", min_value=0.0, max_value=100.0, step=1.0, key="percentage_val")
+                        comparison_period = st.selectbox(
+                            "Compare Against", 
+                            options=["Previous Value", "7-Day Average", "30-Day Average"], 
+                            key="comparison_period_val"
+                        )
+                    elif current_condition == "Between":
+                        threshold_inputs['lower_bound'] = st.number_input("Lower Bound", step=1.0, key="lower_bound_val")
+                
+                with t_col2:
+                    if current_condition == "Between":
+                        threshold_inputs['upper_bound'] = st.number_input("Upper Bound", step=1.0, key="upper_bound_val")
+
+            email_to_notify = st.text_input("Email for Notification", key="email_val")
+            
+            submitted = st.form_submit_button("Set Alert")
+            
+            if submitted:
+                current_metric = st.session_state.get('alert_metric')
+                
+                # --- Validation ---
+                error = False
+                if not all([current_metric, current_condition, alert_name]):
+                    st.error("Please provide an alert name, metric, and condition.")
+                    error = True
+                
+                if not error:
+                    new_alert = {
+                        "name": alert_name,
+                        "metric": current_metric,
+                        "condition": current_condition,
+                        "thresholds": threshold_inputs,
+                        "email": email_to_notify,
+                        "comparison_period": comparison_period
+                    }
+                    st.session_state.alerts.append(new_alert)
+                    st.session_state.last_alert_metric = current_metric
+                    st.session_state.alert_just_set = True
+                    st.rerun()
+
+        st.divider()
+
+        # --- Display Active Alerts ---
+        st.subheader("Active Alerts")
+
+        def format_alert_text(alert):
+            metric = f"**{alert['metric']}**"
+            condition = alert['condition']
+            thresholds = alert['thresholds']
+            email = f"**{alert['email']}**"
+            comparison_period = alert.get('comparison_period', 'Previous Value')
+            
+            if condition == "Above":
+                return f"Monitor {metric} to not go above **{thresholds['value']}**. Notify: {email}"
+            elif condition == "Below":
+                return f"Monitor {metric} to not go below **{thresholds['value']}**. Notify: {email}"
+            elif condition == "Between":
+                return f"Monitor {metric} to be between **{thresholds['lower_bound']}** and **{thresholds['upper_bound']}**. Notify: {email}"
+            elif condition == "Increases by %":
+                return f"Monitor {metric} for an increase of more than **{thresholds['percentage']}%** compared to the **{comparison_period.lower()}**. Notify: {email}"
+            elif condition == "Decreases by %":
+                return f"Monitor {metric} for a decrease of more than **{thresholds['percentage']}%** compared to the **{comparison_period.lower()}**. Notify: {email}"
+            return "Invalid alert configuration."
+
+        if not st.session_state.alerts:
+            st.info("No alerts configured yet.")
+        else:
+            for i, alert in enumerate(st.session_state.alerts):
+                col1, col2, col3 = st.columns([8, 1, 1])
+                with col1:
+                    st.info(f"**{alert.get('name', f'Alert {i+1}')}:** {format_alert_text(alert)}")
+                with col2:
+                    if st.button("Edit", key=f"edit_{i}"):
+                        st.session_state.edit_idx = i
+                        st.rerun()
+                with col3:
+                    if st.button("Delete", key=f"delete_{i}"):
+                        st.session_state.alerts.pop(i)
+                        st.rerun()
 
     # --- Check for Triggered Alerts ---
     st.subheader("Triggered Alerts")
     
-    triggered_alerts_found = False
-    
+    triggered_alerts = {}  # Using a dictionary to group by metric
+
     for alert in st.session_state.alerts:
         metric = alert['metric']
-        threshold = alert['threshold']
-        
-        # Check if the metric is from model data or infra data
-        if metric in model_df_filtered.columns:
-            latest_values = model_df_filtered.groupby('model')[metric].last()
-            for model, value in latest_values.items():
-                if value > threshold:
-                    st.warning(f"**Alert Triggered:** Model **{model}**'s **{metric}** is **{value:.2f}**, which is above the threshold of **{threshold}**.")
-                    triggered_alerts_found = True
-        elif metric in infra_df_filtered.columns:
-            latest_values = infra_df_filtered.groupby('component')[metric].last()
-            for component, value in latest_values.items():
-                if value > threshold:
-                    st.warning(f"**Alert Triggered:** Component **{component}**'s **{metric}** is **{value:.2f}**, which is above the threshold of **{threshold}**.")
-                    triggered_alerts_found = True
+        condition = alert['condition']
+        thresholds = alert['thresholds']
+        alert_name = alert.get('name', 'Unnamed Alert')
+        comparison_period = alert.get('comparison_period', 'Previous Value')
 
-    if not triggered_alerts_found:
+        if metric not in triggered_alerts:
+            triggered_alerts[metric] = []
+
+        for df, entity_col in [(model_df_filtered, 'model'), (infra_df_filtered, 'component')]:
+            if metric in df.columns:
+                sorted_df = df.sort_values('date')
+                
+                if condition in ["Increases by %", "Decreases by %"]:
+                    for entity_name, group in sorted_df.groupby(entity_col):
+                        if len(group) >= 2:
+                            
+                            # Determine the previous value based on the comparison period
+                            if comparison_period == "7-Day Average" and len(group) >= 8:
+                                previous = group[metric].rolling(window=7, min_periods=1).mean().iloc[-2]
+                            elif comparison_period == "30-Day Average" and len(group) >= 31:
+                                previous = group[metric].rolling(window=30, min_periods=1).mean().iloc[-2]
+                            else: # Default to "Previous Value"
+                                previous = group[metric].iloc[-2]
+
+                            latest = group[metric].iloc[-1]
+                            
+                            if previous is not None and previous != 0:
+                                change = ((latest - previous) / abs(previous)) * 100
+                                if condition == "Increases by %" and change > thresholds['percentage']:
+                                    message = f"**{alert_name}:** {entity_col.title()} **{entity_name}**'s metric increased by **{change:.2f}%** compared to the {comparison_period.lower()}, exceeding **{thresholds['percentage']}%**."
+                                    triggered_alerts[metric].append(message)
+                                elif condition == "Decreases by %" and change < -thresholds['percentage']:
+                                    message = f"**{alert_name}:** {entity_col.title()} **{entity_name}**'s metric decreased by **{abs(change):.2f}%** compared to the {comparison_period.lower()}, exceeding **{thresholds['percentage']}%**."
+                                    triggered_alerts[metric].append(message)
+                else:
+                    latest_values = sorted_df.groupby(entity_col)[metric].last()
+                    for entity_name, value in latest_values.items():
+                        if condition == "Above" and 'value' in thresholds and value > thresholds['value']:
+                            message = f"**{alert_name}:** {entity_col.title()} **{entity_name}**'s value of **{value:.2f}** is above the threshold of **{thresholds['value']}**."
+                            triggered_alerts[metric].append(message)
+                        elif condition == "Below" and 'value' in thresholds and value < thresholds['value']:
+                            message = f"**{alert_name}:** {entity_col.title()} **{entity_name}**'s value of **{value:.2f}** is below the threshold of **{thresholds['value']}**."
+                            triggered_alerts[metric].append(message)
+                        elif condition == "Between" and 'lower_bound' in thresholds and 'upper_bound' in thresholds and thresholds['lower_bound'] < value < thresholds['upper_bound']:
+                            message = f"**{alert_name}:** {entity_col.title()} **{entity_name}**'s value of **{value:.2f}** is between **{thresholds['lower_bound']}** and **{thresholds['upper_bound']}**."
+                            triggered_alerts[metric].append(message)
+
+    # Filter out metrics with no triggered alerts and display the rest
+    final_triggered_alerts = {k: v for k, v in triggered_alerts.items() if v}
+
+    if not final_triggered_alerts:
         st.success("All systems normal. No alerts triggered based on the latest data.")
+    else:
+        for metric, messages in final_triggered_alerts.items():
+            with st.expander(f"Metric: {metric.replace('_', ' ').title()}", expanded=True):
+                for message in messages:
+                    st.warning(message)
 
 # Add download functionality
 st.sidebar.header("Export Data")
