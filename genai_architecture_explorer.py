@@ -59,7 +59,8 @@ def generate_sample_data():
             avg_tokens_per_minute = ( throughput / ( 60 * 24 ) )* properties['avg_tokens_per_request'] * np.random.normal(1, 0.15)
             max_tokens_per_minute = avg_tokens_per_minute * np.random.uniform(1.5, 7.5)
             minute_samples = np.random.normal(max_tokens_per_minute, max_tokens_per_minute * 0.4)
-            exceedances = np.sum(minute_samples > properties['token_limit'])
+            # exceptions = np.sum(minute_samples > properties['token_limit'])
+            exceptions = np.sum(max_tokens_per_minute > properties['token_limit'])
             
             model_data.append({
                 'date': date,
@@ -72,7 +73,7 @@ def generate_sample_data():
                 'gpu_utilization': np.random.uniform(0.4, 0.95),
                 'avg_tokens_per_minute': avg_tokens_per_minute,
                 'max_tokens_per_minute': max_tokens_per_minute,
-                'token_limit_exceeded_count': exceedances,
+                'token_limit_exception_count': exceptions,
                 'token_limit': properties['token_limit']
             })
     
@@ -754,9 +755,39 @@ with tab5:
     if not model_df_filtered.empty:
         df = model_df_filtered.copy()
 
-        # Add calculated columns
+        # Add calculated columns for aggregation and charting
         df['daily_total_tokens'] = df['avg_tokens_per_minute'] * 60 * 24
         df['daily_token_cost'] = (df['daily_total_tokens'] / 1000) * df['cost_per_1k_tokens']
+
+        # --- Summary Table ---
+        st.subheader("Model Token Usage Summary")
+        summary_df = df.groupby('model').agg(
+            token_limit=('token_limit', 'first'),
+            total_token_usage=('daily_total_tokens', 'sum'),
+            max_tpm=('max_tokens_per_minute', 'max'),
+            total_exceptions=('token_limit_exception_count', 'sum')
+        ).reset_index()
+
+        st.dataframe(
+            summary_df,
+            column_config={
+                "model": "Model",
+                "token_limit": st.column_config.NumberColumn(
+                    "Token Limit", format="%d"
+                ),
+                "total_token_usage": st.column_config.NumberColumn(
+                    "Overall Token Usage", format="%d"
+                ),
+                "max_tpm": st.column_config.NumberColumn(
+                    "Overall Max Tokens/Min", format="%d"
+                ),
+                "total_exceptions": st.column_config.NumberColumn(
+                    "Total Token Limit Exceptions", format="%d"
+                ),
+            },
+            use_container_width=True,
+            hide_index=True,
+        )
 
         st.subheader("Token Volume Over Time")
         token_chart_type = st.radio(
@@ -814,34 +845,28 @@ with tab5:
                 line_group='Metric', 
                 title="Tokens per Minute (Average vs Max)"
             )
-        # Add threshold lines
-        model_limits = df.groupby('model')['token_limit'].first()
-        model_colors = {trace.name: trace.line.color for trace in fig_token_rate.data}
-        for model_name, limit in model_limits.items():
-            if model_name in model_colors:
-                fig_token_rate.add_hline(
-                    y=limit,
-                    line_dash="dot",
-                    annotation_text=f"{model_name} Limit",
-                    annotation_position="bottom right",
-                    line_color=model_colors[model_name]
-                )
         st.plotly_chart(fig_token_rate, use_container_width=True)
 
-        st.subheader("Token Limit Exceedances")
+        st.subheader("Monthly Token Limit Exceptions")
+        # Resample data for monthly exceptions
+        df_monthly_exceptions = df.set_index('date').groupby('model')['token_limit_exception_count'].resample('M').sum().reset_index()
+        # Using .to_period('M').to_timestamp() to make sure the date is the first of the month for clean plotting
+        df_monthly_exceptions['month'] = df_monthly_exceptions['date'].dt.to_period('M').dt.to_timestamp()
+
         exceed_chart_type = st.radio(
-            "Select Chart Type for Token Limit Exceedances",
-            options=["Line", "Bar", "Area"],
+            "Select Chart Type for Monthly Token Limit Exceptions",
+            options=["Bar", "Line", "Area"], # Bar is a better default for monthly sums
             horizontal=True,
-            key="token_exceed_chart_type_tab5_3"
+            key="token_exception_chart_type_tab5_3"
         )
-        if exceed_chart_type == "Line":
-            fig_exceedances = px.line(df, x='date', y='token_limit_exceeded_count', color='model', title="Daily Token Limit Exceedance Count")
-        elif exceed_chart_type == "Bar":
-            fig_exceedances = px.bar(df, x='date', y='token_limit_exceeded_count', color='model', barmode='group', title="Daily Token Limit Exceedance Count")
+        if exceed_chart_type == "Bar":
+            fig_exceptions = px.bar(df_monthly_exceptions, x='month', y='token_limit_exception_count', color='model', barmode='group', title="Monthly Token Limit Exceptions")
+        elif exceed_chart_type == "Line":
+            fig_exceptions = px.line(df_monthly_exceptions, x='month', y='token_limit_exception_count', color='model', title="Monthly Token Limit Exceptions")
         elif exceed_chart_type == "Area":
-            fig_exceedances = px.area(df, x='date', y='token_limit_exceeded_count', color='model', title="Daily Token Limit Exceedance Count")
-        st.plotly_chart(fig_exceedances, use_container_width=True)
+            fig_exceptions = px.area(df_monthly_exceptions, x='month', y='token_limit_exception_count', color='model', title="Monthly Token Limit Exceptions")
+        fig_exceptions.update_layout(xaxis_title="Month", yaxis_title="Total Exceptions")
+        st.plotly_chart(fig_exceptions, use_container_width=True)
 
         st.subheader("Token Cost Analysis")
         token_cost_chart_type = st.radio(
