@@ -23,3 +23,10 @@ Instead of charting daily token limit exceptions, chart monthtly token limit exc
 Remove the dotted horizontal lines in the tokens per minute chart that indicates the token thresholds for each of the models.
 In a table, summarize the following for each model: token limit, overall token usage, overall max tokens per minute, total token limit exceptions.
 Use thousands separators when displaying numeric data.
+
+ blivezey/token-usage-wrapup:
+ Add a table that shows average monthly token exceptions by cloud platform, department, project, enviroment, release version, and model.
+ Add a column for department to the model token usage summary table.
+
+ Identify model/department pairs whose number of tokens per minute is consistently well below the token limit for that model/deparment pair.  Suggest adjusting the limit to reduce cost.
+ Identify model/department pairs whose number of tokens per minute frequently exceeds the token limit for that model/deparment pair.  Suggest adjusting the limit to improve response.
