@@ -10,7 +10,7 @@ import time
 
 # Set page configuration
 st.set_page_config(
-    page_title="GenAI Architecture Explorer",
+    page_title="Prometheus Insights",
     page_icon="🧠",
     layout="wide"
 )
@@ -30,32 +30,25 @@ with col1:
         with text_subcol:
             st.markdown("""
             <div style="padding-top: 8px; margin-left: -20px;">
-                <div style="color: #1f77b4; font-weight: bold; font-size: 20px; margin: 0; line-height: 1.2;">Cognizant</div>
-                <div style="color: #666; font-size: 14px; margin: 0; line-height: 1.1;">Technology Solutions</div>
+                <div style="color: #1f77b4; font-weight: bold; font-size: 20px; margin: 0; line-height: 1.2;"></div>
             </div>
             """, unsafe_allow_html=True)
     except:
-        # Clean fallback branding
+        # Clean fallback branding - logo only
         st.markdown("""
         <div style="text-align: center; padding: 10px;">
-            <div style="color: #1f77b4; font-weight: bold; font-size: 20px;">🔷 Cognizant</div>
-            <div style="color: #666; font-size: 14px;">Technology Solutions</div>
         </div>
         """, unsafe_allow_html=True)
 
 with col2:
-    st.title("🧠 GenAI FinOps Multi-Cloud Explorer")
-    st.markdown("""
-    **Enterprise GenAI Cost & Performance Analytics Across Multiple Cloud Platforms**  
-    Analyze your GenAI architecture performance, costs, and optimization opportunities across Cloud Platforms.
-    """)
+    st.title("🧠 Prometheus Insights")
 
 with col3:
     # Empty space - removed "Powered by" text
     st.empty()
 
 # Sidebar configuration
-st.sidebar.header("Settings")
+# st.sidebar.header("Settings")
 
 # Show modal window
 @st.dialog("Remediate")
@@ -286,7 +279,6 @@ infra_df = st.session_state.infra_data
 infra_df['error_rate'] = infra_df['errors_per_minute'] / infra_df['requests_per_minute']
 
 # Add sidebar drill-down filters
-st.sidebar.header("🔍 Drill-Down Filters")
 
 # Initialize session state for filter persistence and reset functionality
 if 'filter_reset' not in st.session_state:
@@ -1763,8 +1755,6 @@ st.sidebar.markdown("""
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; padding: 20px;">
-    <p style="color: #1f77b4; font-weight: bold;">🔷 Cognizant GenAI FinOps Platform</p>
-    <p style="color: #666; font-size: 12px;">Empowering enterprises with intelligent multi-cloud cost optimization and performance analytics</p>
-    <p style="color: #666; font-size: 10px;">Built with Streamlit • Powered by Cognizant AI Solutions</p>
+    <p style="color: #1f77b4; font-weight: bold;">🔷 Cognizant Prometheus Insights</p>
 </div>
 """, unsafe_allow_html=True)
