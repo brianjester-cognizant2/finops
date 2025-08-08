@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
 import time
+import os
 
 # Set page configuration
 st.set_page_config(
@@ -49,6 +50,87 @@ with col3:
 
 # Sidebar configuration
 # st.sidebar.header("Settings")
+
+# Data file paths
+DATA_DIR = "data"
+MODEL_DATA_FILE = os.path.join(DATA_DIR, "model_data.parquet")
+INFRA_DATA_FILE = os.path.join(DATA_DIR, "infra_data.parquet")
+
+# Ensure data directory exists
+os.makedirs(DATA_DIR, exist_ok=True)
+
+def save_data_to_files(model_df, infra_df):
+    """Save dataframes to Parquet files for faster loading and smaller file size"""
+    try:
+        model_df.to_parquet(MODEL_DATA_FILE, index=False)
+        infra_df.to_parquet(INFRA_DATA_FILE, index=False)
+        return True
+    except ImportError:
+        # Fallback to CSV if pyarrow is not available
+        try:
+            csv_model_file = MODEL_DATA_FILE.replace('.parquet', '.csv')
+            csv_infra_file = INFRA_DATA_FILE.replace('.parquet', '.csv')
+            model_df.to_csv(csv_model_file, index=False)
+            infra_df.to_csv(csv_infra_file, index=False)
+            st.sidebar.warning("⚠️ Using CSV format (install pyarrow for better performance)")
+            return True
+        except Exception as e:
+            st.error(f"Error saving data files: {e}")
+            return False
+    except Exception as e:
+        st.error(f"Error saving data files: {e}")
+        return False
+
+def load_data_from_files():
+    """Load dataframes from Parquet files if they exist, fallback to CSV"""
+    try:
+        # Try Parquet first
+        if os.path.exists(MODEL_DATA_FILE) and os.path.exists(INFRA_DATA_FILE):
+            model_df = pd.read_parquet(MODEL_DATA_FILE)
+            infra_df = pd.read_parquet(INFRA_DATA_FILE)
+            
+            # Ensure date column is datetime (parquet preserves types better than CSV)
+            model_df['date'] = pd.to_datetime(model_df['date'])
+            infra_df['date'] = pd.to_datetime(infra_df['date'])
+            
+            return model_df, infra_df
+        
+        # Fallback to CSV
+        csv_model_file = MODEL_DATA_FILE.replace('.parquet', '.csv')
+        csv_infra_file = INFRA_DATA_FILE.replace('.parquet', '.csv')
+        
+        if os.path.exists(csv_model_file) and os.path.exists(csv_infra_file):
+            model_df = pd.read_csv(csv_model_file)
+            infra_df = pd.read_csv(csv_infra_file)
+            
+            # Convert date column back to datetime
+            model_df['date'] = pd.to_datetime(model_df['date'])
+            infra_df['date'] = pd.to_datetime(infra_df['date'])
+            
+            return model_df, infra_df
+        
+        return None, None
+    except Exception as e:
+        st.error(f"Error loading data files: {e}")
+        return None, None
+
+def data_files_exist():
+    """Check if data files exist and are not empty"""
+    # Check for Parquet files first
+    parquet_exist = (os.path.exists(MODEL_DATA_FILE) and os.path.getsize(MODEL_DATA_FILE) > 0 and
+                     os.path.exists(INFRA_DATA_FILE) and os.path.getsize(INFRA_DATA_FILE) > 0)
+    
+    if parquet_exist:
+        return True
+    
+    # Check for CSV fallback files
+    csv_model_file = MODEL_DATA_FILE.replace('.parquet', '.csv')
+    csv_infra_file = INFRA_DATA_FILE.replace('.parquet', '.csv')
+    
+    csv_exist = (os.path.exists(csv_model_file) and os.path.getsize(csv_model_file) > 0 and
+                 os.path.exists(csv_infra_file) and os.path.getsize(csv_infra_file) > 0)
+    
+    return csv_exist
 
 # Show modal window
 @st.dialog("Remediate")
@@ -261,22 +343,85 @@ def generate_sample_data():
     
     return model_df, infra_df
 
-# Load or generate data - Force regeneration to apply new project-department mapping
-# Clear old data to ensure new mapping is used
-if 'data_version' not in st.session_state or st.session_state.data_version != "v3_fixed_indentation":
-    st.session_state.pop('model_data', None)
-    st.session_state.pop('infra_data', None)
-    st.session_state.data_version = "v3_fixed_indentation"
+# Load or generate data with persistent storage
+def load_or_generate_data():
+    """Load data from files or generate new data if files don't exist"""
+    
+    # Add a button to regenerate data (useful for development/testing)
+    if st.sidebar.button("🔄 Regenerate Data", help="Generate new sample data and overwrite existing files"):
+        with st.spinner('Generating new sample data...'):
+            model_df, infra_df = generate_sample_data()
+            if save_data_to_files(model_df, infra_df):
+                st.sidebar.success("✅ New data generated and saved!")
+                return model_df, infra_df
+            else:
+                st.sidebar.error("❌ Failed to save data files")
+                return model_df, infra_df
+    
+    # Try to load existing data first
+    if data_files_exist():
+        with st.spinner('Loading data from files...'):
+            model_df, infra_df = load_data_from_files()
+            if model_df is not None and infra_df is not None:
+                return model_df, infra_df
+    
+    # Generate new data if files don't exist or loading failed
+    with st.spinner('Generating sample data (first time setup)...'):
+        model_df, infra_df = generate_sample_data()
+        
+        # Save the generated data for future use
+        if save_data_to_files(model_df, infra_df):
+            st.sidebar.success("✅ Data generated and saved for faster future loading!")
+        else:
+            st.sidebar.warning("⚠️ Data generated but couldn't save to files")
+        
+        return model_df, infra_df
 
-if 'model_data' not in st.session_state or 'infra_data' not in st.session_state:
-    with st.spinner('Generating sample data with proper project-department mapping...'):
-        st.session_state.model_data, st.session_state.infra_data = generate_sample_data()
-
-model_df = st.session_state.model_data
-infra_df = st.session_state.infra_data
+# Load data using the new persistent approach
+model_df, infra_df = load_or_generate_data()
 
 # Calculate error rate on the main dataframe to ensure it's always available
 infra_df['error_rate'] = infra_df['errors_per_minute'] / infra_df['requests_per_minute']
+
+# Sidebar: Data Management Section
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📊 Data Management")
+
+# Show data freshness info
+if data_files_exist():
+    model_mtime = os.path.getmtime(MODEL_DATA_FILE)
+    infra_mtime = os.path.getmtime(INFRA_DATA_FILE)
+    last_updated = datetime.fromtimestamp(max(model_mtime, infra_mtime))
+    st.sidebar.text(f"📅 Last updated: {last_updated.strftime('%Y-%m-%d %H:%M')}")
+    
+    # Option to clear data files
+    if st.sidebar.button("🗑️ Clear Data Files", help="Delete saved data files (will regenerate on next load)"):
+        try:
+            files_deleted = 0
+            # Remove Parquet files
+            if os.path.exists(MODEL_DATA_FILE):
+                os.remove(MODEL_DATA_FILE)
+                files_deleted += 1
+            if os.path.exists(INFRA_DATA_FILE):
+                os.remove(INFRA_DATA_FILE)
+                files_deleted += 1
+            
+            # Remove CSV fallback files
+            csv_model_file = MODEL_DATA_FILE.replace('.parquet', '.csv')
+            csv_infra_file = INFRA_DATA_FILE.replace('.parquet', '.csv')
+            if os.path.exists(csv_model_file):
+                os.remove(csv_model_file)
+                files_deleted += 1
+            if os.path.exists(csv_infra_file):
+                os.remove(csv_infra_file)
+                files_deleted += 1
+                
+            st.sidebar.success(f"✅ {files_deleted} data files cleared!")
+            st.rerun()
+        except Exception as e:
+            st.sidebar.error(f"❌ Error clearing files: {e}")
+
+st.sidebar.markdown("---")
 
 # Add sidebar drill-down filters
 
@@ -310,10 +455,6 @@ if len(date_range) == 2:
     start_date, end_date = date_range
     date_filtered_model_df = date_filtered_model_df[(date_filtered_model_df['date'].dt.date >= start_date) & (date_filtered_model_df['date'].dt.date <= end_date)]
     date_filtered_infra_df = date_filtered_infra_df[(date_filtered_infra_df['date'].dt.date >= start_date) & (date_filtered_infra_df['date'].dt.date <= end_date)]
-
-# Bidirectional cascading filter system - filters update based on selections in any direction
-st.sidebar.markdown("### 🌐 Enterprise Drill-Down Filters")
-st.sidebar.info("💡 **Smart Filtering**: Each filter updates dynamically based on ALL your selections!")
 
 # Get current selections from session state (if they exist)
 current_clouds = st.session_state.get('cloud_filter', [])
@@ -433,14 +574,9 @@ if selected_releases:
     final_model_df = final_model_df[final_model_df['release_version'].isin(selected_releases)]
     final_infra_df = final_infra_df[final_infra_df['release_version'].isin(selected_releases)]
 
-st.sidebar.markdown("---")
-
 # Use the final filtered data as our base filtered datasets
 model_df_filtered = final_model_df.copy()
 infra_df_filtered = final_infra_df.copy()
-
-# Display current filter summary with counts and bidirectional filter impact
-st.sidebar.markdown("### 📊 Current Selection")
 
 # Calculate available options at each level given current selection
 cloud_options_data, _ = get_intersected_data('cloud')
@@ -456,36 +592,6 @@ total_projects = len(sorted(project_options_data['project'].unique())) if len(pr
 total_envs = len(sorted(env_options_data['environment'].unique())) if len(env_options_data) > 0 else 0
 total_releases = len(sorted(release_options_data['release_version'].unique())) if len(release_options_data) > 0 else 0
 
-# Create a visual bidirectional filter representation
-filter_chain_text = f"""
-🔗 **Bidirectional Smart Filtering:**
-Each filter affects all others - select any filter to see how options update!
-
-� **Current Scope:**
-• ☁️ Clouds: {len(selected_clouds)}/{total_clouds} selected
-• 🏢 Departments: {len(selected_departments)}/{total_depts} selected  
-• 📁 Projects: {len(selected_projects)}/{total_projects} selected
-• 🌍 Environments: {len(selected_environments)}/{total_envs} selected
-• 🚀 Releases: {len(selected_releases)}/{total_releases} selected
-
-**Final Data:** {len(model_df_filtered):,} model records, {len(infra_df_filtered):,} infra records
-"""
-
-st.sidebar.info(filter_chain_text)
-
-st.sidebar.markdown("---")
-st.sidebar.header("🎯 Analysis Focus")
-
-# Show dynamic filter counts
-analysis_info = f"""
-🔗 **Smart Filters**: Options below update based on ALL enterprise selections above and below!
-
-📊 **Current Scope:**
-• {len(model_df_filtered):,} model records available
-• {len(infra_df_filtered):,} infrastructure records available
-"""
-st.sidebar.info(analysis_info)
-
 # Model selection (based on all filtered data from enterprise filters)
 available_models = sorted(model_df_filtered['model'].unique()) if len(model_df_filtered) > 0 else []
 selected_models = st.sidebar.multiselect(
@@ -499,7 +605,6 @@ selected_models = st.sidebar.multiselect(
 # Apply model filter and show impact
 if selected_models:
     model_filtered_df = model_df_filtered[model_df_filtered['model'].isin(selected_models)]
-    st.sidebar.success(f"✓ {len(selected_models)} models selected → {len(model_filtered_df):,} model records")
 else:
     model_filtered_df = model_df_filtered
     if len(available_models) > 0:
@@ -518,7 +623,6 @@ selected_components = st.sidebar.multiselect(
 # Apply component filter and show impact
 if selected_components:
     infra_filtered_df = infra_df_filtered[infra_df_filtered['component'].isin(selected_components)]
-    st.sidebar.success(f"✓ {len(selected_components)} components selected → {len(infra_filtered_df):,} infra records")
 else:
     infra_filtered_df = infra_df_filtered
     if len(available_components) > 0:
@@ -554,20 +658,6 @@ with tab_summary:
     st.markdown("### 🎯 Current Analysis Context")
 
     if len(model_df_filtered) > 0:
-        # Show filter path as breadcrumbs
-        filter_breadcrumbs = " → ".join([
-            f"📅 {date_range[0]} to {date_range[1]}" if len(date_range) == 2 else "📅 All dates",
-            f"☁️ {len(selected_clouds)} clouds",
-            f"🏢 {len(selected_departments)} depts",
-            f"📁 {len(selected_projects)} projects", 
-            f"🌍 {len(selected_environments)} envs",
-            f"🚀 {len(selected_releases)} releases",
-            f"🤖 {len(selected_models)} models",
-            f"🖥️ {len(selected_components)} components"
-        ])
-        
-        st.info(f"**Filter Path:** {filter_breadcrumbs}")
-        
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
@@ -1715,31 +1805,6 @@ st.sidebar.download_button(
     file_name='genai_infrastructure_metrics_filtered.csv',
     mime='text/csv',
 )
-
-# Footer with usage instructions
-st.sidebar.markdown("---")
-st.sidebar.markdown("""
-### 📋 How to Use This Dashboard
-1. **🔍 Filter Data**: Use drill-down filters to focus on specific clouds, departments, projects, environments, or releases
-2. **📅 Set Date Range**: Choose the time period for analysis
-3. **🤖 Select Models & Components**: Pick which models and infrastructure components to analyze
-4. **📊 Explore Tabs**: Navigate through different analysis perspectives
-5. **💾 Export Data**: Download filtered data for further analysis
-
-### 🎯 Drill-Down Strategy
-- Start with **Cloud Platforms** to compare costs across providers
-- Filter by **Department** to analyze team-specific usage
-- Select **Projects** to dive into specific initiatives  
-- Use **Environment** to compare dev vs prod costs
-- Filter by **Release Version** to track performance changes
-""")
-
-st.sidebar.markdown("---")
-st.sidebar.info("""
-🏢 **Enterprise Demo**: This dashboard uses simulated data representing a multi-cloud GenAI deployment across AWS, GCP, Azure, Snowflake, and Databricks. 
-
-In production, connect to your actual monitoring systems and cost management APIs.
-""")
 
 # Cognizant footer branding
 st.sidebar.markdown("---")
