@@ -527,10 +527,6 @@ if len(date_range) == 2:
     date_filtered_model_df = date_filtered_model_df[(date_filtered_model_df['date'].dt.date >= start_date) & (date_filtered_model_df['date'].dt.date <= end_date)]
     date_filtered_infra_df = date_filtered_infra_df[(date_filtered_infra_df['date'].dt.date >= start_date) & (date_filtered_infra_df['date'].dt.date <= end_date)]
 
-# Bidirectional cascading filter system - filters update based on selections in any direction
-st.sidebar.markdown("### 🌐 Enterprise Drill-Down Filters")
-st.sidebar.info("💡 **Smart Filtering**: Each filter updates dynamically based on ALL your selections!")
-
 # Get current selections from session state (if they exist)
 current_clouds = st.session_state.get('cloud_filter', [])
 current_departments = st.session_state.get('dept_filter', [])
@@ -670,36 +666,6 @@ total_projects = len(sorted(project_options_data['project'].unique())) if len(pr
 total_envs = len(sorted(env_options_data['environment'].unique())) if len(env_options_data) > 0 else 0
 total_releases = len(sorted(release_options_data['release_version'].unique())) if len(release_options_data) > 0 else 0
 
-# Create a visual bidirectional filter representation
-filter_chain_text = f"""
-🔗 **Bidirectional Smart Filtering:**
-Each filter affects all others - select any filter to see how options update!
-
-� **Current Scope:**
-• ☁️ Clouds: {len(selected_clouds)}/{total_clouds} selected
-• 🏢 Departments: {len(selected_departments)}/{total_depts} selected  
-• 📁 Projects: {len(selected_projects)}/{total_projects} selected
-• 🌍 Environments: {len(selected_environments)}/{total_envs} selected
-• 🚀 Releases: {len(selected_releases)}/{total_releases} selected
-
-**Final Data:** {len(model_df_filtered):,} model records, {len(infra_df_filtered):,} infra records
-"""
-
-st.sidebar.info(filter_chain_text)
-
-st.sidebar.markdown("---")
-st.sidebar.header("🎯 Analysis Focus")
-
-# Show dynamic filter counts
-analysis_info = f"""
-🔗 **Smart Filters**: Options below update based on ALL enterprise selections above and below!
-
-📊 **Current Scope:**
-• {len(model_df_filtered):,} model records available
-• {len(infra_df_filtered):,} infrastructure records available
-"""
-st.sidebar.info(analysis_info)
-
 # Model selection (based on all filtered data from enterprise filters)
 available_models = sorted(model_df_filtered['model'].unique()) if len(model_df_filtered) > 0 else []
 selected_models = st.sidebar.multiselect(
@@ -766,20 +732,6 @@ with tab_summary:
     st.markdown("### Current Analysis Context")
 
     if len(model_df_filtered) > 0:
-        # Show filter path as breadcrumbs
-        filter_breadcrumbs = " → ".join([
-            f"📅 {date_range[0]} to {date_range[1]}" if len(date_range) == 2 else "📅 All dates",
-            f"☁️ {len(selected_clouds)} clouds",
-            f"🏢 {len(selected_departments)} depts",
-            f"📁 {len(selected_projects)} projects", 
-            f"🌍 {len(selected_environments)} envs",
-            f"🚀 {len(selected_releases)} releases",
-            f"🤖 {len(selected_models)} models",
-            f"🖥️ {len(selected_components)} components"
-        ])
-        
-        st.info(f"**Filter Path:** {filter_breadcrumbs}")
-        
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
@@ -1907,24 +1859,6 @@ st.sidebar.download_button(
     file_name='genai_infrastructure_metrics_filtered.csv',
     mime='text/csv',
 )
-
-# Footer with usage instructions
-st.sidebar.markdown("---")
-st.sidebar.markdown("""
-### 📋 How to Use This Dashboard
-1. **🔍 Filter Data**: Use drill-down filters to focus on specific clouds, departments, projects, environments, or releases
-2. **📅 Set Date Range**: Choose the time period for analysis
-3. **🤖 Select Models & Components**: Pick which models and infrastructure components to analyze
-4. **📊 Explore Tabs**: Navigate through different analysis perspectives
-5. **💾 Export Data**: Download filtered data for further analysis
-
-### 🎯 Drill-Down Strategy
-- Start with **Cloud Platforms** to compare costs across providers
-- Filter by **Department** to analyze team-specific usage
-- Select **Projects** to dive into specific initiatives  
-- Use **Environment** to compare dev vs prod costs
-- Filter by **Release Version** to track performance changes
-""")
 
 st.sidebar.markdown("---")
 st.sidebar.info("""
