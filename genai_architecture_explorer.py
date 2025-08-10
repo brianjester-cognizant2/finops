@@ -11,10 +11,63 @@ import os
 
 # Set page configuration
 st.set_page_config(
-    page_title="Prometheus Insights",
-    page_icon="🧠",
+    page_title="Prometheus Insights", # Removed emoji
+    page_icon="assets/logo.png", # Use logo for page icon
     layout="wide"
 )
+
+# Add custom CSS for metric cards
+st.markdown("""
+<style>
+    .metric-container {
+        padding: 1rem;
+        border-radius: 0;
+        text-align: left;
+        border: none;
+        margin-bottom: 1rem;
+    }
+    .metric-container .metric-title {
+        font-size: 1rem;
+        font-weight: 500;
+        color: #000000;
+        margin-bottom: 0.25rem;
+    }
+    .metric-container .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #ffffff;
+    }
+    .metric-container-neutral {
+        background-color: rgba(96, 165, 250, 0.8); /* blue-400 */
+    }
+    .metric-container-cost {
+        background-color: rgba(248, 113, 113, 0.8); /* red-400 */
+    }
+    .metric-container-accuracy-high {
+        background-color: rgba(74, 222, 128, 0.8); /* green-400 */
+    }
+    .metric-container-accuracy-medium {
+        background-color: rgba(251, 191, 36, 0.8); /* amber-400 */
+    }
+    .metric-container-accuracy-low {
+        background-color: rgba(248, 113, 113, 0.8); /* red-400 */
+    }
+
+    /* General style for sharp corners on Streamlit widgets */
+    .stButton>button, 
+    .stDownloadButton>button, 
+    .stTextInput>div>div>input, 
+    .stSelectbox>div>div, 
+    .stMultiSelect>div>div, 
+    .stDateInput>div>div>input,
+    div[data-testid="stExpander"] {
+        border-radius: 0 !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 0 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Title and introduction with Cognizant branding
 col1, col2, col3 = st.columns([1, 2, 1])
@@ -42,11 +95,29 @@ with col1:
         """, unsafe_allow_html=True)
 
 with col2:
-    st.title("🧠 Prometheus Insights")
+    st.title("Prometheus Insights")
 
 with col3:
     # Empty space - removed "Powered by" text
     st.empty()
+
+# Helper functions for custom metric cards
+def get_accuracy_color_class(accuracy_value):
+    if accuracy_value >= 0.9:
+        return "metric-container-accuracy-high"
+    elif accuracy_value >= 0.75:
+        return "metric-container-accuracy-medium"
+    else:
+        return "metric-container-accuracy-low"
+
+def create_metric_card(title, value, help_text, color_class):
+    st.markdown(f"""
+    <div class="metric-container {color_class}" title="{help_text}">
+        <div class="metric-title">{title}</div>
+        <div class="metric-value">{value}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # Sidebar configuration
 # st.sidebar.header("Settings")
@@ -441,7 +512,7 @@ if st.session_state.filter_reset:
 
 # Date filter for analysis (needs to come first to filter other options)
 date_range = st.sidebar.date_input(
-    "📅 Select Date Range",
+    "Select Date Range",
     value=(model_df['date'].min().date(), model_df['date'].max().date()),
     min_value=model_df['date'].min().date(),
     max_value=model_df['date'].max().date(),
@@ -455,6 +526,10 @@ if len(date_range) == 2:
     start_date, end_date = date_range
     date_filtered_model_df = date_filtered_model_df[(date_filtered_model_df['date'].dt.date >= start_date) & (date_filtered_model_df['date'].dt.date <= end_date)]
     date_filtered_infra_df = date_filtered_infra_df[(date_filtered_infra_df['date'].dt.date >= start_date) & (date_filtered_infra_df['date'].dt.date <= end_date)]
+
+# Bidirectional cascading filter system - filters update based on selections in any direction
+st.sidebar.markdown("### 🌐 Enterprise Drill-Down Filters")
+st.sidebar.info("💡 **Smart Filtering**: Each filter updates dynamically based on ALL your selections!")
 
 # Get current selections from session state (if they exist)
 current_clouds = st.session_state.get('cloud_filter', [])
@@ -499,7 +574,7 @@ def get_intersected_data(exclude_filter=None):
 cloud_data, _ = get_intersected_data('cloud')
 available_clouds = sorted(cloud_data['cloud_platform'].unique()) if len(cloud_data) > 0 else []
 selected_clouds = st.sidebar.multiselect(
-    "☁️ Cloud Platforms",
+    "Cloud Platforms",
     options=available_clouds,
     default=[c for c in current_clouds if c in available_clouds] if current_clouds else available_clouds,
     help=f"Cloud platforms with data in current selection scope ({len(available_clouds)} available)",
@@ -510,7 +585,7 @@ selected_clouds = st.sidebar.multiselect(
 dept_data, _ = get_intersected_data('department')
 available_departments = sorted(dept_data['department'].unique()) if len(dept_data) > 0 else []
 selected_departments = st.sidebar.multiselect(
-    "🏢 Departments",
+    "Departments",
     options=available_departments,
     default=[d for d in current_departments if d in available_departments] if current_departments else available_departments,
     help=f"Departments with data in current selection scope ({len(available_departments)} available)",
@@ -521,7 +596,7 @@ selected_departments = st.sidebar.multiselect(
 project_data, _ = get_intersected_data('project')
 available_projects = sorted(project_data['project'].unique()) if len(project_data) > 0 else []
 selected_projects = st.sidebar.multiselect(
-    "📁 Projects",
+    "Projects",
     options=available_projects,
     default=[p for p in current_projects if p in available_projects] if current_projects else available_projects,
     help=f"Projects with data in current selection scope ({len(available_projects)} available)",
@@ -532,7 +607,7 @@ selected_projects = st.sidebar.multiselect(
 env_data, _ = get_intersected_data('environment')
 available_environments = sorted(env_data['environment'].unique()) if len(env_data) > 0 else []
 selected_environments = st.sidebar.multiselect(
-    "🌍 Environments",
+    "Environments",
     options=available_environments,
     default=[e for e in current_environments if e in available_environments] if current_environments else available_environments,
     help=f"Environments with data in current selection scope ({len(available_environments)} available)",
@@ -543,7 +618,7 @@ selected_environments = st.sidebar.multiselect(
 release_data, _ = get_intersected_data('release')
 available_releases = sorted(release_data['release_version'].unique()) if len(release_data) > 0 else []
 selected_releases = st.sidebar.multiselect(
-    "🚀 Release Versions",
+    "Release Versions",
     options=available_releases,
     default=[r for r in current_releases if r in available_releases] if current_releases else available_releases,
     help=f"Release versions with data in current selection scope ({len(available_releases)} available)",
@@ -578,6 +653,9 @@ if selected_releases:
 model_df_filtered = final_model_df.copy()
 infra_df_filtered = final_infra_df.copy()
 
+# Display current filter summary with counts and bidirectional filter impact
+st.sidebar.markdown("### 📊 Current Selection")
+
 # Calculate available options at each level given current selection
 cloud_options_data, _ = get_intersected_data('cloud')
 dept_options_data, _ = get_intersected_data('department')
@@ -592,10 +670,40 @@ total_projects = len(sorted(project_options_data['project'].unique())) if len(pr
 total_envs = len(sorted(env_options_data['environment'].unique())) if len(env_options_data) > 0 else 0
 total_releases = len(sorted(release_options_data['release_version'].unique())) if len(release_options_data) > 0 else 0
 
+# Create a visual bidirectional filter representation
+filter_chain_text = f"""
+🔗 **Bidirectional Smart Filtering:**
+Each filter affects all others - select any filter to see how options update!
+
+� **Current Scope:**
+• ☁️ Clouds: {len(selected_clouds)}/{total_clouds} selected
+• 🏢 Departments: {len(selected_departments)}/{total_depts} selected  
+• 📁 Projects: {len(selected_projects)}/{total_projects} selected
+• 🌍 Environments: {len(selected_environments)}/{total_envs} selected
+• 🚀 Releases: {len(selected_releases)}/{total_releases} selected
+
+**Final Data:** {len(model_df_filtered):,} model records, {len(infra_df_filtered):,} infra records
+"""
+
+st.sidebar.info(filter_chain_text)
+
+st.sidebar.markdown("---")
+st.sidebar.header("🎯 Analysis Focus")
+
+# Show dynamic filter counts
+analysis_info = f"""
+🔗 **Smart Filters**: Options below update based on ALL enterprise selections above and below!
+
+📊 **Current Scope:**
+• {len(model_df_filtered):,} model records available
+• {len(infra_df_filtered):,} infrastructure records available
+"""
+st.sidebar.info(analysis_info)
+
 # Model selection (based on all filtered data from enterprise filters)
 available_models = sorted(model_df_filtered['model'].unique()) if len(model_df_filtered) > 0 else []
 selected_models = st.sidebar.multiselect(
-    f"🤖 Select Models ({len(available_models)} available)",
+    f"Select Models ({len(available_models)} available)",
     options=available_models,
     default=available_models[:3] if len(available_models) > 0 else [],  # Default select first 3 models
     help=f"Models available in current enterprise scope. Selecting specific models may affect infrastructure component availability.",
@@ -613,7 +721,7 @@ else:
 # Infrastructure component selection (based on filtered data)
 available_components = sorted(infra_df_filtered['component'].unique()) if len(infra_df_filtered) > 0 else []
 selected_components = st.sidebar.multiselect(
-    f"🖥️ Infrastructure Components ({len(available_components)} available)",
+    f"Infrastructure Components ({len(available_components)} available)",
     options=available_components,
     default=available_components,
     help=f"Infrastructure components in current enterprise scope.",
@@ -630,7 +738,7 @@ else:
 
 # Metric selection for models
 model_metrics = st.sidebar.multiselect(
-    "📈 Select Model Metrics to Analyze",
+    "Select Model Metrics to Analyze",
     options=['latency_ms', 'throughput_qps', 'accuracy', 'cost_per_1k_tokens', 'memory_usage_gb', 'gpu_utilization'],
     default=['latency_ms', 'accuracy', 'cost_per_1k_tokens'],
     help="Choose which model performance metrics to display",
@@ -642,7 +750,7 @@ model_df_filtered = model_filtered_df if selected_models else model_df_filtered.
 infra_df_filtered = infra_filtered_df if selected_components else infra_df_filtered.iloc[0:0]  # Empty if no components selected
 
 # Add a reset filters button
-if st.sidebar.button("🔄 Reset All Filters", help="Reset all filters to show all available data"):
+if st.sidebar.button("Reset All Filters", help="Reset all filters to show all available data"):
     st.session_state.filter_reset = True
     st.rerun()
 
@@ -652,42 +760,57 @@ st.markdown("---")
 tab_summary, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Summary", "Model Performance", "Infrastructure Metrics", "Architecture Overview", "Optimization Recommendations", "Token Usage Analysis", "Alerts"])
 
 with tab_summary:
-    st.header("📊 Analysis Summary & Context")
+    st.header("Analysis Summary & Context")
     
     # Show dynamic filter context in main area
-    st.markdown("### 🎯 Current Analysis Context")
+    st.markdown("### Current Analysis Context")
 
     if len(model_df_filtered) > 0:
+        # Show filter path as breadcrumbs
+        filter_breadcrumbs = " → ".join([
+            f"📅 {date_range[0]} to {date_range[1]}" if len(date_range) == 2 else "📅 All dates",
+            f"☁️ {len(selected_clouds)} clouds",
+            f"🏢 {len(selected_departments)} depts",
+            f"📁 {len(selected_projects)} projects", 
+            f"🌍 {len(selected_environments)} envs",
+            f"🚀 {len(selected_releases)} releases",
+            f"🤖 {len(selected_models)} models",
+            f"🖥️ {len(selected_components)} components"
+        ])
+        
+        st.info(f"**Filter Path:** {filter_breadcrumbs}")
+        
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("🏢 Departments", len(selected_departments), help="Number of departments in current selection")
+            create_metric_card("Departments", len(selected_departments), "Number of departments in current selection", "metric-container-neutral")
         with col2:
-            st.metric("☁️ Cloud Platforms", len(selected_clouds), help="Number of cloud platforms selected")
+            create_metric_card("Cloud Platforms", len(selected_clouds), "Number of cloud platforms selected", "metric-container-neutral")
         with col3:
-            st.metric("📁 Projects", len(selected_projects), help="Number of projects in current scope")
+            create_metric_card("Projects", len(selected_projects), "Number of projects in current scope", "metric-container-neutral")
         with col4:
-            st.metric("🌍 Environments", len(selected_environments), help="Number of environments (dev/staging/prod)")
+            create_metric_card("Environments", len(selected_environments), "Number of environments (dev/staging/prod)", "metric-container-neutral")
         
         # Show data volume metrics
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("📊 Model Records", f"{len(model_df_filtered):,}", help="Number of model performance records in current selection")
+            create_metric_card("Model Records", f"{len(model_df_filtered):,}", "Number of model performance records in current selection", "metric-container-neutral")
         with col2:
-            st.metric("🖥️ Infra Records", f"{len(infra_df_filtered):,}", help="Number of infrastructure records in current selection")
+            create_metric_card("Infra Records", f"{len(infra_df_filtered):,}", "Number of infrastructure records in current selection", "metric-container-neutral")
         with col3:
             total_cost = model_df_filtered['cost_per_1k_tokens'].sum() if len(model_df_filtered) > 0 else 0
-            st.metric("💰 Total Cost", f"${total_cost:,.2f}", help="Sum of all costs in current selection")
+            create_metric_card("Total Cost", f"${total_cost:,.2f}", "Sum of all costs in current selection", "metric-container-cost")
         with col4:
             avg_accuracy = model_df_filtered['accuracy'].mean() if len(model_df_filtered) > 0 else 0
-            st.metric("🎯 Avg Accuracy", f"{avg_accuracy:.1%}", help="Average model accuracy in current selection")
+            accuracy_color_class = get_accuracy_color_class(avg_accuracy)
+            create_metric_card("Avg Accuracy", f"{avg_accuracy:.1%}", "Average model accuracy in current selection", accuracy_color_class)
     else:
-        st.warning("🔍 No data matches your current filter selection. Try adjusting your filters.")
-        st.info("💡 **Tip**: Use the sidebar filters to drill down into specific clouds, departments, projects, environments, or models.")
+        st.warning("No data matches your current filter selection. Try adjusting your filters.")
+        st.info("**Tip**: Use the sidebar filters to drill down into specific clouds, departments, projects, environments, or models.")
 
     # Show breakdown by cloud and environment (if data exists)
     if len(model_df_filtered) > 0:
-        st.markdown("### 📊 Current Selection Summary")
+        st.markdown("### Current Selection Summary")
         
         col1, col2 = st.columns(2)
         
@@ -716,7 +839,7 @@ with tab_summary:
             st.plotly_chart(fig_env_dist, use_container_width=True)
         
         # Additional summary chart
-        st.markdown("### 📈 Key Performance Insights")
+        st.markdown("### Key Performance Insights")
         
         # Average cost by release version
         release_cost = model_df_filtered.groupby('release_version')['cost_per_1k_tokens'].mean().sort_values(ascending=True)
@@ -1191,31 +1314,10 @@ with tab4:
     high_issues = len(checks_df[(checks_df['Priority'] == 'High') & (checks_df['Action'] == 'Remediate')])
     medium_issues = len(checks_df[(checks_df['Priority'] == 'Medium') & (checks_df['Action'] == 'Remediate')])
     low_issues = len(checks_df[(checks_df['Priority'] == 'Low') & (checks_df['Action'] == 'Remediate')])
+    
     # Display metrics in a horizontal row
     st.markdown("""
     <style>
-    .metric-card {
-        padding: 1.5rem;
-        border-radius: 0.5rem;
-        background-color: #262730;
-        text-align: center;
-        border: 1px solid #374151;
-    }
-    .metric-card h3 {
-        margin: 0 0 0.5rem 0;
-        font-size: 1rem;
-        font-weight: 500;
-        color: #9ca3af;
-    }
-    .metric-card p {
-        margin: 0;
-        font-size: 3rem;
-        font-weight: 700;
-    }
-    .metric-card.red p { color: #ef4444; }
-    .metric-card.yellow p { color: #facc15; }
-    .metric-card.blue p { color: #60a5fa; }
-
     /* Custom style for the Remediate button in the Optimization Checks table */
     div[data-testid="stHorizontalBlock"] > div:nth-child(3) [data-testid="stButton"] > button {
         background-color: #22c55e;
@@ -1231,26 +1333,26 @@ with tab4:
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown(f"""
-        <div class="metric-card red">
-            <h3>High Priority</h3>
-            <p>{high_issues}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        create_metric_card(
+            "High Priority Issues", 
+            high_issues, 
+            "Number of high priority issues to remediate.", 
+            "metric-container-cost"
+        )
     with col2:
-        st.markdown(f"""
-        <div class="metric-card yellow">
-            <h3>Medium Priority</h3>
-            <p>{medium_issues}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        create_metric_card(
+            "Medium Priority Issues", 
+            medium_issues, 
+            "Number of medium priority issues to remediate.", 
+            "metric-container-accuracy-medium"
+        )
     with col3:
-        st.markdown(f"""
-        <div class="metric-card blue">
-            <h3>Low Priority</h3>
-            <p>{low_issues}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        create_metric_card(
+            "Low Priority Issues", 
+            low_issues, 
+            "Number of low priority issues to remediate.", 
+            "metric-container-neutral"
+        )
     
     st.markdown("---")
 
@@ -1376,7 +1478,7 @@ with tab5:
             col1, col2 = st.columns(2)
 
             with col1:
-                st.markdown("##### 📉 Underutilized Limits (Potential Cost Savings)")
+                st.markdown("##### Underutilized Limits (Potential Cost Savings)")
                 if not underutilized_pairs.empty:
                     for _, row in underutilized_pairs.iterrows():
                         st.info(
@@ -1389,7 +1491,7 @@ with tab5:
                     st.success("No significantly underutilized model/department pairs found.")
 
             with col2:
-                st.markdown("##### 📈 Frequently Exceeded Limits (Performance Risk)")
+                st.markdown("##### Frequently Exceeded Limits (Performance Risk)")
                 if not overutilized_pairs.empty:
                     for _, row in overutilized_pairs.iterrows():
                         st.warning(
@@ -1806,11 +1908,36 @@ st.sidebar.download_button(
     mime='text/csv',
 )
 
+# Footer with usage instructions
+st.sidebar.markdown("---")
+st.sidebar.markdown("""
+### 📋 How to Use This Dashboard
+1. **🔍 Filter Data**: Use drill-down filters to focus on specific clouds, departments, projects, environments, or releases
+2. **📅 Set Date Range**: Choose the time period for analysis
+3. **🤖 Select Models & Components**: Pick which models and infrastructure components to analyze
+4. **📊 Explore Tabs**: Navigate through different analysis perspectives
+5. **💾 Export Data**: Download filtered data for further analysis
+
+### 🎯 Drill-Down Strategy
+- Start with **Cloud Platforms** to compare costs across providers
+- Filter by **Department** to analyze team-specific usage
+- Select **Projects** to dive into specific initiatives  
+- Use **Environment** to compare dev vs prod costs
+- Filter by **Release Version** to track performance changes
+""")
+
+st.sidebar.markdown("---")
+st.sidebar.info("""
+🏢 **Enterprise Demo**: This dashboard uses simulated data representing a multi-cloud GenAI deployment across AWS, GCP, Azure, Snowflake, and Databricks. 
+
+In production, connect to your actual monitoring systems and cost management APIs.
+""")
+
 # Cognizant footer branding
 st.sidebar.markdown("---")
 st.sidebar.markdown("""
 <div style="text-align: center; padding: 10px;">
-    <p style="color: #1f77b4; font-weight: bold; margin: 0;">🔷 Cognizant</p>
+    <p style="color: #1f77b4; font-weight: bold; margin: 0;">Cognizant</p>
     <p style="color: #666; font-size: 12px; margin: 0;">AI & Analytics Solutions</p>
     <p style="color: #666; font-size: 10px; margin: 0;">© 2025 Cognizant Technology Solutions</p>
 </div>
@@ -1820,6 +1947,6 @@ st.sidebar.markdown("""
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; padding: 20px;">
-    <p style="color: #1f77b4; font-weight: bold;">🔷 Cognizant Prometheus Insights</p>
+    <p style="color: #1f77b4; font-weight: bold;">Cognizant Prometheus Insights</p>
 </div>
 """, unsafe_allow_html=True)
