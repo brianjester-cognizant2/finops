@@ -8,6 +8,7 @@ import seaborn as sns
 from datetime import datetime
 import time
 import os
+import mock_billing_service
 
 # Set page configuration
 st.set_page_config(
@@ -723,7 +724,7 @@ if st.sidebar.button("Reset All Filters", help="Reset all filters to show all av
 st.markdown("---")
 
 # Main content with Summary tab as first tab
-tab_summary, tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Summary", "Model Performance", "Infrastructure Metrics", "Architecture Overview", "Optimization Recommendations", "Token Usage Analysis", "Alerts"])
+tab_summary, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Summary", "Model Performance", "Infrastructure Metrics", "Architecture Overview", "Optimization Recommendations", "Token Usage Analysis", "Alerts", "Billing Details"])
 
 with tab_summary:
     st.header("Analysis Summary & Context")
@@ -1835,6 +1836,64 @@ with tab6:
             with st.expander(f"Metric: {metric.replace('_', ' ').title()}", expanded=True):
                 for message in messages:
                     st.warning(message)
+
+with tab7:
+    st.header("Billing Details (Mock Service)")
+    st.info("This tab simulates calls to a billing API to fetch detailed cost and usage data based on the selected filters.")
+
+    # Use the date range and project filters from the sidebar
+    start_date, end_date = date_range
+    
+    # If no projects are selected in the sidebar, the mock service will return data for all projects.
+    projects_to_fetch = selected_projects if selected_projects else None
+
+    with st.spinner("Fetching billing data from mock service..."):
+        billing_data_response = mock_billing_service.get_billing_data(start_date, end_date, projects_to_fetch)
+        billing_records = billing_data_response.get("billingInfo", [])
+
+    if not billing_records:
+        st.warning("No billing data found for the selected filters.")
+    else:
+        # Flatten the nested dictionary structure for easier display in a DataFrame
+        flat_records = [
+            {
+                "Date": pd.to_datetime(rec["usage_start_time"]).strftime('%Y-%m-%d'),
+                "Project": rec["project"]["name"],
+                "Service": rec["service"]["description"],
+                "SKU": rec["sku"]["description"],
+                "Cost (USD)": rec["cost"],
+                "Usage": rec["usage"]["amount"],
+                "Unit": rec["usage"]["unit"]
+            }
+            for rec in billing_records
+        ]
+        billing_df = pd.DataFrame(flat_records)
+
+        st.subheader("Billing Summary")
+        total_cost = billing_df["Cost (USD)"].sum()
+        total_tokens = billing_df[billing_df["Unit"] == "tokens"]["Usage"].sum()
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            create_metric_card("Total Billed Cost", f"${total_cost:,.2f}", "Total cost from the mock billing service for the selected period.", "metric-container-cost")
+        with col2:
+            create_metric_card("Total Tokens Billed", f"{total_tokens:,.0f}", "Total tokens consumed and billed across all services.", "metric-container-neutral")
+        with col3:
+            create_metric_card("Billing Records", f"{len(billing_df):,}", "Number of individual billing line items returned.", "metric-container-neutral")
+
+        st.markdown("---")
+
+        st.subheader("Cost Over Time")
+        cost_over_time = billing_df.groupby("Date")["Cost (USD)"].sum().reset_index()
+        fig_cost_time = px.area(cost_over_time, x="Date", y="Cost (USD)", title="Daily Billed Cost from Mock API")
+        st.plotly_chart(fig_cost_time, use_container_width=True)
+
+        st.subheader("Detailed Billing Records")
+        st.dataframe(
+            billing_df.sort_values(by=["Date", "Project", "Service"], ascending=[False, True, True]),
+            use_container_width=True,
+            hide_index=True
+        )
 
 # Add download functionality
 st.sidebar.header("Export Data")
