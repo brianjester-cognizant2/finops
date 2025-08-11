@@ -1841,7 +1841,6 @@ with tab6:
 
 with tab7:
     st.header("Billing Details")
-    st.info("This tab loads pre-generated billing data for faster performance. Use the 'Regenerate Data' button in the sidebar to create a new data file.")
 
     # Load data from the static file (or generate it if it doesn't exist)
     with st.spinner("Loading billing data..."):
@@ -1873,7 +1872,7 @@ with tab7:
             st.stop()
 
         # Display metrics and charts using the filtered data
-        st.subheader("Billing Summary")
+        st.subheader("Summary")
         total_cost = filtered_billing_df["Cost (USD)"].sum()
         total_tokens = filtered_billing_df[filtered_billing_df["Unit"] == "tokens"]["Usage"].sum()
         
