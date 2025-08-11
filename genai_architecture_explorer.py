@@ -1838,7 +1838,7 @@ with tab6:
                     st.warning(message)
 
 with tab7:
-    st.header("Billing Details (Mock Service)")
+    st.header("Billing Details")
 
     # Add a button to allow users to regenerate the data file
     if st.button("🔄 Regenerate Billing Data"):
