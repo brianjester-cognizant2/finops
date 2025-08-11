@@ -457,17 +457,17 @@ infra_df['error_rate'] = infra_df['errors_per_minute'] / infra_df['requests_per_
 
 # Sidebar: Data Management Section
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 📊 Data Management")
+st.sidebar.markdown("### Data Management")
 
 # Show data freshness info
 if data_files_exist():
     model_mtime = os.path.getmtime(MODEL_DATA_FILE)
     infra_mtime = os.path.getmtime(INFRA_DATA_FILE)
     last_updated = datetime.fromtimestamp(max(model_mtime, infra_mtime))
-    st.sidebar.text(f"📅 Last updated: {last_updated.strftime('%Y-%m-%d %H:%M')}")
+    st.sidebar.text(f"Last updated: {last_updated.strftime('%Y-%m-%d %H:%M')}")
     
     # Option to clear data files
-    if st.sidebar.button("🗑️ Clear Data Files", help="Delete saved data files (will regenerate on next load)"):
+    if st.sidebar.button("Clear Data Files", help="Delete saved data files (will regenerate on next load)"):
         try:
             files_deleted = 0
             # Remove Parquet files
