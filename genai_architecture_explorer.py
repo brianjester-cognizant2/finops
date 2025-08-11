@@ -420,15 +420,17 @@ def load_or_generate_data():
     """Load data from files or generate new data if files don't exist"""
     
     # Add a button to regenerate data (useful for development/testing)
-    if st.sidebar.button("🔄 Regenerate Data", help="Generate new sample data and overwrite existing files"):
-        with st.spinner('Generating new sample data...'):
+    if st.sidebar.button("Regenerate Data", help="Generate new sample data and overwrite existing files"):
+        with st.spinner('Generating new sample data for all services...'):
+            # Regenerate model and infra data
             model_df, infra_df = generate_sample_data()
-            if save_data_to_files(model_df, infra_df):
-                st.sidebar.success("✅ New data generated and saved!")
-                return model_df, infra_df
-            else:
-                st.sidebar.error("❌ Failed to save data files")
-                return model_df, infra_df
+            save_data_to_files(model_df, infra_df)
+            
+            # Regenerate billing data
+            mock_billing_service.load_or_generate_billing_data(force_regenerate=True)
+            
+            st.sidebar.success("All data regenerated!")
+            return model_df, infra_df
     
     # Try to load existing data first
     if data_files_exist():
@@ -443,9 +445,9 @@ def load_or_generate_data():
         
         # Save the generated data for future use
         if save_data_to_files(model_df, infra_df):
-            st.sidebar.success("✅ Data generated and saved for faster future loading!")
+            st.sidebar.success("Data generated and saved for faster future loading!")
         else:
-            st.sidebar.warning("⚠️ Data generated but couldn't save to files")
+            st.sidebar.warning("Data generated but couldn't save to files")
         
         return model_df, infra_df
 
@@ -488,10 +490,10 @@ if data_files_exist():
                 os.remove(csv_infra_file)
                 files_deleted += 1
                 
-            st.sidebar.success(f"✅ {files_deleted} data files cleared!")
+            st.sidebar.success(f"{files_deleted} data files cleared!")
             st.rerun()
         except Exception as e:
-            st.sidebar.error(f"❌ Error clearing files: {e}")
+            st.sidebar.error(f"Error clearing files: {e}")
 
 st.sidebar.markdown("---")
 
@@ -1839,14 +1841,7 @@ with tab6:
 
 with tab7:
     st.header("Billing Details")
-
-    # Add a button to allow users to regenerate the data file
-    if st.button("🔄 Regenerate Billing Data"):
-        with st.spinner("Generating new billing data file... This may take a moment."):
-            mock_billing_service.load_or_generate_billing_data(force_regenerate=True)
-            st.success("✅ New billing data file generated!")
-    else:
-        st.info("This tab loads pre-generated billing data for faster performance. Click 'Regenerate Billing Data' to create a new data file.")
+    st.info("This tab loads pre-generated billing data for faster performance. Use the 'Regenerate Data' button in the sidebar to create a new data file.")
 
     # Load data from the static file (or generate it if it doesn't exist)
     with st.spinner("Loading billing data..."):
