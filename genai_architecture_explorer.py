@@ -1839,39 +1839,48 @@ with tab6:
 
 with tab7:
     st.header("Billing Details (Mock Service)")
-    st.info("This tab simulates calls to a billing API to fetch detailed cost and usage data based on the selected filters.")
 
-    # Use the date range and project filters from the sidebar
-    start_date, end_date = date_range
-    
-    # If no projects are selected in the sidebar, the mock service will return data for all projects.
-    projects_to_fetch = selected_projects if selected_projects else None
-
-    with st.spinner("Fetching billing data from mock service..."):
-        billing_data_response = mock_billing_service.get_billing_data(start_date, end_date, projects_to_fetch)
-        billing_records = billing_data_response.get("billingInfo", [])
-
-    if not billing_records:
-        st.warning("No billing data found for the selected filters.")
+    # Add a button to allow users to regenerate the data file
+    if st.button("🔄 Regenerate Billing Data"):
+        with st.spinner("Generating new billing data file... This may take a moment."):
+            mock_billing_service.load_or_generate_billing_data(force_regenerate=True)
+            st.success("✅ New billing data file generated!")
     else:
-        # Flatten the nested dictionary structure for easier display in a DataFrame
-        flat_records = [
-            {
-                "Date": pd.to_datetime(rec["usage_start_time"]).strftime('%Y-%m-%d'),
-                "Project": rec["project"]["name"],
-                "Service": rec["service"]["description"],
-                "SKU": rec["sku"]["description"],
-                "Cost (USD)": rec["cost"],
-                "Usage": rec["usage"]["amount"],
-                "Unit": rec["usage"]["unit"]
-            }
-            for rec in billing_records
-        ]
-        billing_df = pd.DataFrame(flat_records)
+        st.info("This tab loads pre-generated billing data for faster performance. Click 'Regenerate Billing Data' to create a new data file.")
 
+    # Load data from the static file (or generate it if it doesn't exist)
+    with st.spinner("Loading billing data..."):
+        try:
+            billing_df = mock_billing_service.load_or_generate_billing_data()
+        except Exception as e:
+            st.error(f"Failed to load or generate billing data: {e}")
+            billing_df = pd.DataFrame()
+
+    if billing_df.empty:
+        st.warning("No billing data found. Try regenerating the data.")
+    else:
+        # Ensure Date column is datetime for filtering
+        billing_df['Date'] = pd.to_datetime(billing_df['Date'])
+
+        # Filter the loaded data based on the sidebar controls
+        start_date, end_date = date_range
+        
+        filtered_billing_df = billing_df[
+            (billing_df['Date'].dt.date >= start_date) & 
+            (billing_df['Date'].dt.date <= end_date)
+        ]
+        
+        if selected_projects:
+            filtered_billing_df = filtered_billing_df[filtered_billing_df['Project'].isin(selected_projects)]
+
+        if filtered_billing_df.empty:
+            st.warning("No billing data found for the selected filters.")
+            st.stop()
+
+        # Display metrics and charts using the filtered data
         st.subheader("Billing Summary")
-        total_cost = billing_df["Cost (USD)"].sum()
-        total_tokens = billing_df[billing_df["Unit"] == "tokens"]["Usage"].sum()
+        total_cost = filtered_billing_df["Cost (USD)"].sum()
+        total_tokens = filtered_billing_df[filtered_billing_df["Unit"] == "tokens"]["Usage"].sum()
         
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -1879,18 +1888,18 @@ with tab7:
         with col2:
             create_metric_card("Total Tokens Billed", f"{total_tokens:,.0f}", "Total tokens consumed and billed across all services.", "metric-container-neutral")
         with col3:
-            create_metric_card("Billing Records", f"{len(billing_df):,}", "Number of individual billing line items returned.", "metric-container-neutral")
+            create_metric_card("Billing Records", f"{len(filtered_billing_df):,}", "Number of individual billing line items returned.", "metric-container-neutral")
 
         st.markdown("---")
 
         st.subheader("Cost Over Time")
-        cost_over_time = billing_df.groupby("Date")["Cost (USD)"].sum().reset_index()
+        cost_over_time = filtered_billing_df.groupby("Date")["Cost (USD)"].sum().reset_index()
         fig_cost_time = px.area(cost_over_time, x="Date", y="Cost (USD)", title="Daily Billed Cost from Mock API")
         st.plotly_chart(fig_cost_time, use_container_width=True)
 
         st.subheader("Detailed Billing Records")
         st.dataframe(
-            billing_df.sort_values(by=["Date", "Project", "Service"], ascending=[False, True, True]),
+            filtered_billing_df.sort_values(by=["Date", "Project", "Service"], ascending=[False, True, True]),
             use_container_width=True,
             hide_index=True
         )
