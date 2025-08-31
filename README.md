@@ -9,7 +9,7 @@ A professional, enterprise-ready analytics platform for monitoring and analyzing
 - **Real-time Metrics**: Model performance, infrastructure monitoring, cost analysis
 - **Interactive Dashboards**: Drill-down capabilities with dynamic filtering
 - **Performance Optimized**: Fast data loading with persistent storage
-## Screenshot
+## Screenshots
 ![Product screenshot](public/images/screenshot.png)
 ![Product screenshot](public/images/screenshot2.png)
 ![Product screenshot](public/images/screenshot3.png)
