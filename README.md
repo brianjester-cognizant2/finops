@@ -11,7 +11,10 @@ A professional, enterprise-ready analytics platform for monitoring and analyzing
 - **Performance Optimized**: Fast data loading with persistent storage
 ## Screenshot
 ![Product screenshot](public/images/screenshot.png)
-![<img src="public/images/screenshot2.png" width="250"/>](public/images/screenshot2.png)
+![Product screenshot](public/images/screenshot2.png)
+![Product screenshot](public/images/screenshot3.png)
+![Product screenshot](public/images/screenshot4.png)
+![Product screenshot](public/images/screenshot5.png)
 
 ## Prerequisites
 
