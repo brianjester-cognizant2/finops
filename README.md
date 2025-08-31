@@ -10,6 +10,18 @@ A professional, enterprise-ready analytics platform for monitoring and analyzing
 - **Interactive Dashboards**: Drill-down capabilities with dynamic filtering
 - **Performance Optimized**: Fast data loading with persistent storage
 
+## Prerequisites
+
+### On a home computer
+
+1. Install the Python Install Manager from the Microsoft Store
+
+2. Switch to Python 3.9
+```
+py install 3.9
+py -3.9
+```
+
 ## Installation
 
 1. Install dependencies:
